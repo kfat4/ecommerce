@@ -1,0 +1,6 @@
+com.ecommerce.common.web.WebAutoConfiguration
+com.ecommerce.common.security.ResourceServerSecurityAutoConfiguration
+com.ecommerce.common.messaging.KafkaMessagingAutoConfiguration
+com.ecommerce.common.outbox.OutboxAutoConfiguration
+com.ecommerce.common.inbox.InboxAutoConfiguration
+com.ecommerce.common.idempotency.IdempotencyAutoConfiguration

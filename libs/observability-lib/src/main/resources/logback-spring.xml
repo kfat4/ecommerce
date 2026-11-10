@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Shared by every service (shipped in observability-lib, so services do not keep their own copy).
+
+  CONSOLE: human readable for `docker compose logs`, includes traceId/spanId and correlationId (MDC).
+  OTEL:    every event becomes an OpenTelemetry log record and is exported over OTLP by the SDK's batch processor
+           (in-memory queue, never blocks a request thread; events are dropped if the collector is down).
+           trace_id/span_id come from the active span, MDC entries (correlationId, ...) become attributes.
+           Wired to the SDK by OpenTelemetryLogbackAutoConfiguration; switch export off with OTLP_LOGS_ENABLED=false.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <springProperty scope="context" name="appName" source="spring.application.name"/>
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%d{HH:mm:ss.SSS} %highlight(%5p) [${appName},%X{traceId:-},%X{spanId:-}] [cid:%X{correlationId:-}] %cyan(%-40.40logger{39}) : %m%n%wEx"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>   <!-- thread name -->
+        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes> <!-- log.atInfo().addKeyValue(..) -->
+        <captureMarkerAttribute>true</captureMarkerAttribute>
+        <captureMdcAttributes>*</captureMdcAttributes>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="OTEL"/>
+    </root>
+</configuration>

@@ -1,0 +1,59 @@
+# ---------------------------------------------------------------------------------------------
+# Observability defaults for every service (loaded with the LOWEST precedence – see
+# ObservabilityDefaultsEnvironmentPostProcessor). Override anything per service or per environment.
+#
+#   logs    ──OTLP──▶ EDOT collector ──▶ Elasticsearch  (logs-*  data streams)  ──▶ Kibana Discover
+#   traces  ──OTLP──▶ EDOT collector ──▶ Elasticsearch  (traces-* data streams) ──▶ Kibana APM
+#   metrics ◀─scrape─ Prometheus (/actuator/prometheus, Eureka SD) ──▶ Grafana + Alertmanager
+# ---------------------------------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true                     # /actuator/health/liveness and /readiness for orchestrators
+      show-details: always
+
+  # ---- traces --------------------------------------------------------------------------------
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}  # 100% locally; production typically 0.05-0.1 (or tail sampling in the collector)
+  opentelemetry:
+    resource-attributes:                  # service.name comes from spring.application.name
+      service.namespace: ecommerce
+      deployment.environment.name: ${DEPLOYMENT_ENVIRONMENT:local}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTLP_ENDPOINT:http://localhost:4318}/v1/logs
+
+  observations:
+    enable:
+      spring.security: false              # 6-8 filter-chain spans per request: noise in the trace waterfall
+
+  # ---- logs ----------------------------------------------------------------------------------
+  logging:
+    export:
+      otlp:
+        enabled: ${OTLP_LOGS_ENABLED:true}
+
+  # ---- metrics: pull model, so OTLP metric push stays off ----------------------------------------
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}   # every series carries the service name
+    distribution:
+      percentiles-histogram:                    # real histograms -> p95/p99 with histogram_quantile + exemplars
+        http.server.requests: true
+        http.client.requests: true
+        spring.kafka.listener: true

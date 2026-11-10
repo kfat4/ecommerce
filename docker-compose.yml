@@ -1,0 +1,299 @@
+# =================================================================================================
+#  E-commerce microservices – local stack
+#
+#  docker compose up -d --build                         core stack (services + Kafka/Redis/Postgres/Mongo/ES
+#                                                       + EDOT collector: logs & traces are stored from the start)
+#  docker compose --profile observability up -d         + Kibana (logs, APM traces), Prometheus, Grafana, Alertmanager
+#  docker compose up -d --scale order-service=4         horizontal scaling: just add replicas (Prometheus finds them)
+#  docker compose --profile search-tools up -d kibana   only Kibana (Dev Tools console for the search index)
+#
+#  Observability (see infra/observability/README.md):
+#    logs + traces ─OTLP─▶ otel-collector (EDOT) ─▶ elasticsearch ─▶ Kibana   http://localhost:5601
+#    metrics ◀─scrape (Eureka SD)─ prometheus ─▶ grafana                   http://localhost:3000
+#                                      └─▶ alertmanager                       http://localhost:9093
+#
+#  Only the API gateway (8080) and dev UIs expose host ports. Services are reachable only through the
+#  gateway, and because they have no fixed host port they can be scaled freely.
+# =================================================================================================
+name: ecommerce
+
+x-app: &app
+  restart: unless-stopped
+  environment: &app-env
+    SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+    EUREKA_URL: http://discovery-server:8761/eureka
+    POSTGRES_HOST: postgres
+    POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce}
+    MONGO_HOST: mongo
+    REDIS_HOST: redis
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ELASTICSEARCH_URL: http://elasticsearch:9200
+    OTLP_ENDPOINT: http://otel-collector:4318          # traces + logs (metrics are pulled by Prometheus)
+    TRACING_SAMPLING: ${TRACING_SAMPLING:-1.0}
+    DEPLOYMENT_ENVIRONMENT: docker
+    JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-0123456789abcdef}
+  depends_on: &app-deps
+    postgres: { condition: service_healthy }
+    mongo: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    kafka: { condition: service_healthy }
+    discovery-server: { condition: service_started }
+  deploy: &app-deploy
+    resources:
+      limits:
+        memory: 512M
+
+services:
+  # ------------------------------------------------------------------ infrastructure
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce}
+      POSTGRES_DB: ecommerce
+    ports: ["5432:5432"]
+    volumes:
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      retries: 20
+
+  mongo:
+    image: mongo:7.0
+    # Single-node replica set: required for multi-document transactions (product + outbox in product-service).
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27017:27017"]
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      # Initiates the replica set on first start; healthy only once this node is the writable primary.
+      test: ["CMD", "mongosh", "--quiet", "--eval",
+             "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo:27017'}]}) }; quit(db.hello().isWritablePrimary ? 0 : 1)"]
+      interval: 5s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:4.3.2
+    ports: ["29092:29092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller           # KRaft – no ZooKeeper
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"         # topics are declared explicitly by the services
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      retries: 20
+
+  elasticsearch:
+    # Two jobs locally: search read model (search-service) + logs/traces (EDOT collector).
+    # Production: separate clusters, so a log flood can never slow down product search.
+    image: elasticsearch:9.2.8
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"                 # local dev only – production: TLS + API keys
+      # products* indices are created explicitly with a strict mapping (search-service IndexBootstrap);
+      # OTel data streams (logs-*, traces-*, metrics-*) and system indices may be auto-created.
+      action.auto_create_index: "+logs-*,+traces-*,+metrics-*,+.*,-*"
+      ES_JAVA_OPTS: -Xms768m -Xmx768m
+    ports: ["9200:9200"]
+    volumes: [elasticsearch-data:/usr/share/elasticsearch/data]
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' || exit 1"]
+      interval: 10s
+      retries: 30
+
+  kibana:
+    profiles: [observability, search-tools]
+    image: kibana:9.2.8                                 # Discover (logs), Observability > APM (traces), Dev Tools
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY:-local-dev-kibana-key-0123456789abcdef}
+    ports: ["5601:5601"]
+    depends_on:
+      elasticsearch: { condition: service_healthy }
+
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.5.0
+    ports: ["8090:8080"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      kafka: { condition: service_healthy }
+
+  # ------------------------------------------------------------------ observability
+  otel-collector:
+    # EDOT Collector = OpenTelemetry Collector built by Elastic (elastic-agent image in OTel mode).
+    image: elastic/elastic-agent:9.2.8
+    command: ["--config", "/etc/otelcol/otelcol.yml"]
+    environment:
+      ELASTIC_AGENT_OTEL: "true"
+      STORAGE_DIR: /usr/share/elastic-agent
+      ELASTIC_ENDPOINT: http://elasticsearch:9200
+    volumes:
+      - ./infra/observability/otel-collector/otelcol.yml:/etc/otelcol/otelcol.yml:ro
+    ports:
+      - "4317:4317"                                    # OTLP gRPC  (services started from the IDE)
+      - "4318:4318"                                    # OTLP HTTP
+    depends_on:
+      elasticsearch: { condition: service_healthy }
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v3.15.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --enable-feature=exemplar-storage              # keeps trace ids attached to histogram samples
+      - --web.enable-lifecycle                         # curl -X POST localhost:9090/-/reload after editing rules
+    volumes:
+      - ./infra/observability/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports: ["9090:9090"]
+    depends_on:
+      discovery-server: { condition: service_started }
+
+  alertmanager:
+    profiles: [observability]
+    image: prom/alertmanager:v0.34.2
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ./infra/observability/alertmanager:/etc/alertmanager:ro
+    ports: ["9093:9093"]
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:13.0.13
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/service-overview.json
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+
+  payment-provider:
+    image: wiremock/wiremock:3.13.2                    # simulated external payment gateway
+    command: ["--global-response-templating", "--disable-banner"]
+    volumes:
+      - ./infra/wiremock/mappings:/home/wiremock/mappings:ro
+    ports: ["9999:8080"]
+
+  # ------------------------------------------------------------------ platform services
+  discovery-server:
+    build: { context: ., args: { SERVICE: discovery-server } }
+    image: ecommerce/discovery-server:local
+    restart: unless-stopped
+    ports: ["8761:8761"]
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      OTLP_ENDPOINT: http://otel-collector:4318
+      DEPLOYMENT_ENVIRONMENT: docker
+    deploy: *app-deploy
+
+  api-gateway:
+    <<: *app
+    build: { context: ., args: { SERVICE: api-gateway } }
+    image: ecommerce/api-gateway:local
+    ports: ["8080:8080"]
+    depends_on:
+      redis: { condition: service_healthy }
+      discovery-server: { condition: service_started }
+
+  # ------------------------------------------------------------------ business services
+  auth-service:
+    <<: *app
+    build: { context: ., args: { SERVICE: auth-service } }
+    image: ecommerce/auth-service:local
+
+  product-service:
+    <<: *app
+    build: { context: ., args: { SERVICE: product-service } }
+    image: ecommerce/product-service:local
+    deploy:
+      <<: *app-deploy
+      replicas: 2
+
+  inventory-service:
+    <<: *app
+    build: { context: ., args: { SERVICE: inventory-service } }
+    image: ecommerce/inventory-service:local
+    deploy:
+      <<: *app-deploy
+      replicas: 2
+
+  order-service:
+    <<: *app
+    build: { context: ., args: { SERVICE: order-service } }
+    image: ecommerce/order-service:local
+    deploy:
+      <<: *app-deploy
+      replicas: 2
+
+  payment-service:
+    <<: *app
+    build: { context: ., args: { SERVICE: payment-service } }
+    image: ecommerce/payment-service:local
+    environment:
+      <<: *app-env
+      PAYMENT_PROVIDER_URL: http://payment-provider:8080
+    deploy:
+      <<: *app-deploy
+      replicas: 2
+
+  notification-service:
+    <<: *app
+    build: { context: ., args: { SERVICE: notification-service } }
+    image: ecommerce/notification-service:local
+
+  search-service:
+    <<: *app
+    build: { context: ., args: { SERVICE: search-service } }
+    image: ecommerce/search-service:local
+    depends_on:
+      <<: *app-deps
+      elasticsearch: { condition: service_healthy }
+    deploy:
+      <<: *app-deploy
+      replicas: 2
+
+volumes:
+  postgres-data:
+  mongo-data:
+  elasticsearch-data:
+  prometheus-data:
+  grafana-data:

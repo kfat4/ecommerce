@@ -1,0 +1,58 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: payment-service
+  config:
+    import: classpath:ecommerce-common.yml
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/payment_db
+  http:
+    clients:
+      connect-timeout: 1s
+      read-timeout: 3s        # external providers are slower; still bounded
+
+payment:
+  provider:
+    base-url: ${PAYMENT_PROVIDER_URL:http://localhost:9999}
+
+ecommerce:
+  outbox:
+    enabled: true
+
+resilience4j:
+  retry:
+    instances:
+      paymentProvider:
+        max-attempts: 3
+        wait-duration: 300ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+  circuitbreaker:
+    instances:
+      paymentProvider:
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+  bulkhead:
+    instances:
+      paymentProvider:
+        max-concurrent-calls: 20
+        max-wait-duration: 200ms
+
+management:
+  health:
+    circuitbreakers:
+      enabled: true

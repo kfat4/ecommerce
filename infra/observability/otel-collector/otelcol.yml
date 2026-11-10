@@ -1,0 +1,65 @@
+# =================================================================================================
+#  EDOT Collector (Elastic Distribution of OpenTelemetry) – gateway mode, writes straight to Elasticsearch.
+#  Based on Elastic's 9.2 gateway sample. No APM Server is needed: the elasticapm processor/connector produce
+#  what the Kibana APM UI expects (span enrichment + pre-aggregated service metrics).
+#
+#   services ──OTLP/HTTP :4318──▶ memory_limiter ─▶ batch ─▶ elasticapm ─▶ elasticsearch (mapping: otel)
+#                                                                  │
+#                                       elasticapm connector ──────┴──▶ aggregated APM metrics ─▶ elasticsearch
+#
+#  Data lands in OTel-native data streams: traces-generic.otel-default, logs-generic.otel-default, metrics-*.
+# =================================================================================================
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+connectors:
+  elasticapm: {}                       # derives service/transaction metrics (throughput, latency, error rate)
+
+processors:
+  memory_limiter:                      # first in every pipeline: refuse data instead of being OOM-killed
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  batch:
+    send_batch_size: 1000
+    timeout: 1s
+    send_batch_max_size: 1500
+  elasticapm: {}                       # enriches spans with the attributes the APM UI needs
+
+exporters:
+  elasticsearch/otel:
+    endpoints:
+      - ${env:ELASTIC_ENDPOINT}
+    # Local stack runs Elasticsearch without security. Production: api_key: ${env:ELASTIC_API_KEY} + TLS.
+    mapping:
+      mode: otel
+    sending_queue:                     # survive short Elasticsearch hiccups without dropping data
+      enabled: true
+
+service:
+  telemetry:
+    metrics:                           # the collector's own health, scraped by Prometheus (otelcol_*)
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, elasticapm]
+      exporters: [elasticapm, elasticsearch/otel]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [elasticapm, elasticsearch/otel]
+    metrics/aggregated-otel-metrics:
+      receivers: [elasticapm]
+      processors: []
+      exporters: [elasticsearch/otel]

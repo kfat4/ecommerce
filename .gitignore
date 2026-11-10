@@ -1,0 +1,28 @@
+# Build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Secrets / local environment – NEVER commit these (use .env.example as template)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Claude Code local-only settings
+.claude/settings.local.json
+*.p12
+*.jks
+*.keystore
+*.pfx
+secrets/
+infra/observability/alertmanager/secrets/
+
+# OS / logs
+*.log

@@ -1,0 +1,27 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: product-service
+  config:
+    import: classpath:ecommerce-common.yml
+  mongodb:
+    # Multi-document transactions (product + outbox) need a replica set; docker-compose runs a single-node one.
+    uri: mongodb://${MONGO_HOST:localhost}:27017/product_db?directConnection=true
+  data:
+    mongodb:
+      auto-index-creation: true
+  cache:
+    type: redis
+
+ecommerce:
+  product-outbox:
+    poll-interval-ms: 500
+    batch-size: 100
+    lease: 30s
+  security:
+    jwt:
+      public-paths:
+        - /api/v1/products
+        - /api/v1/products/*

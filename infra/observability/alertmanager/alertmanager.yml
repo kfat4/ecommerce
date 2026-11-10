@@ -1,0 +1,33 @@
+# =================================================================================================
+#  Alertmanager: groups, de-duplicates and routes the alerts Prometheus fires.
+#  Locally nothing is sent (receiver without integrations) – alerts are visible at http://localhost:9093
+#  and in Grafana. To get notified, add an integration to a receiver, e.g.:
+#
+#    slack_configs:
+#      - api_url_file: /etc/alertmanager/secrets/slack-webhook   # never commit the URL itself
+#        channel: '#ecommerce-alerts'
+#        send_resolved: true
+# =================================================================================================
+route:
+  receiver: default
+  group_by: [alertname, application]
+  group_wait: 30s          # wait for related alerts to arrive and send them as one notification
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: on-call
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+  - name: on-call
+
+inhibit_rules:
+  # A dead replica explains its own latency/error/heap warnings: don't page twice for one cause.
+  - source_matchers: ['alertname="ServiceInstanceDown"']
+    target_matchers: ['severity="warning"']
+    equal: [instance]
+  - source_matchers: ['alertname="OutboxStalled"']
+    target_matchers: ['alertname="OutboxBacklogGrowing"']
+    equal: [application]

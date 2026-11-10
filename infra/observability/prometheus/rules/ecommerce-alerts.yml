@@ -1,0 +1,171 @@
+# =================================================================================================
+#  Alert rules. Labels: `application` = Micrometer common tag (spring.application.name),
+#  `service`/`instance` = added by Prometheus from Eureka. severity: critical (page) | warning (ticket) | info.
+#  Business metrics are defined in code: OutboxMetrics, SagaMetrics, ProcessedMessageStore, IdempotencyFilter.
+# =================================================================================================
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceInstanceDown
+        expr: up{job=~"ecommerce-services|discovery-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} replica {{ $labels.instance }} cannot be scraped"
+          description: "The replica is registered but /actuator/prometheus does not answer for 1 minute."
+
+      - alert: ApiGatewayMissing
+        expr: absent(up{job="ecommerce-services", service="api-gateway"} == 1)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No healthy api-gateway replica – the whole shop is unreachable"
+
+  - name: http-red
+    rules:
+      - alert: HighHttpErrorRate
+        expr: |
+          sum by (application) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            /
+          sum by (application) (rate(http_server_requests_seconds_count[5m]))
+            > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.application }}: {{ $value | humanizePercentage }} of requests fail with 5xx"
+          description: "Open the Grafana 'Servis Genel Bakış' dashboard, click an exemplar to jump to the trace in Kibana APM."
+
+      - alert: HighHttpLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (application, le) (rate(http_server_requests_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }}: p95 latency is {{ $value | humanizeDuration }}"
+
+  - name: resilience
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: max by (application, name) (resilience4j_circuitbreaker_state{state=~"open|forced_open"}) == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }}: circuit breaker '{{ $labels.name }}' is OPEN"
+          description: "Calls to the dependency are short-circuited to the fallback. Check the downstream service."
+
+      - alert: DatabasePoolSaturated
+        expr: max by (application, instance) (hikaricp_connections_pending) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} ({{ $labels.instance }}): threads are waiting for a DB connection"
+
+      - alert: JvmHeapHigh
+        expr: |
+          sum by (application, instance) (jvm_memory_used_bytes{area="heap"})
+            /
+          sum by (application, instance) (jvm_memory_max_bytes{area="heap"} > 0)
+            > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} ({{ $labels.instance }}): heap usage {{ $value | humanizePercentage }}"
+
+  - name: messaging
+    rules:
+      - alert: OutboxBacklogGrowing
+        expr: max by (application, store) (ecommerce_outbox_pending) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }}: {{ $value }} outbox messages waiting for Kafka"
+
+      - alert: OutboxStalled
+        expr: max by (application, store) (ecommerce_outbox_oldest_age_seconds) > 300
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.application }}: oldest outbox message is {{ $value | humanizeDuration }} old"
+          description: "Events are written but not published – sagas and the search index stop moving. Is Kafka reachable?"
+
+      - alert: KafkaConsumerLagHigh
+        expr: max by (application, topic) (kafka_consumer_fetch_manager_records_lag_max) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }} is {{ $value }} records behind on {{ $labels.topic }}"
+          description: "Scale the consumer (replicas <= partitions) or look for a slow/failing handler."
+
+      - alert: KafkaListenerFailures
+        expr: sum by (application) (rate(spring_kafka_listener_seconds_count{error!="none"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.application }}: Kafka listener invocations are failing (records go to retry/DLT)"
+
+      - alert: InboxDuplicatesSpike
+        expr: sum by (application, consumer) (rate(ecommerce_inbox_duplicates_total[5m])) > 1
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.consumer }}: unusually many duplicate deliveries (rebalances? relay re-sending?)"
+
+  - name: order-saga
+    rules:
+      - alert: SagaStuck
+        expr: increase(ecommerce_saga_stuck_total[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "An order saga is STUCK (payment never answered) – manual intervention needed"
+
+      - alert: LatePaymentNeedsRefund
+        expr: increase(ecommerce_saga_late_payments_total[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "A payment completed after the order was cancelled – the customer must be refunded"
+
+      - alert: HighOrderCancellationRate
+        expr: |
+          sum(rate(ecommerce_saga_finished_total{outcome="cancelled"}[15m]))
+            /
+          sum(rate(ecommerce_saga_finished_total[15m]))
+            > 0.3
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of orders end up cancelled"
+
+      - alert: SagaSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(ecommerce_saga_duration_seconds_bucket[10m]))) > 30
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 order completion time is {{ $value | humanizeDuration }}"
+
+  - name: telemetry-pipeline
+    rules:
+      - alert: OtelCollectorExportFailing
+        expr: |
+          sum(rate({__name__=~"otelcol_exporter_send_failed_(spans|log_records)(_total)?"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "EDOT collector cannot write logs/traces to Elasticsearch – observability data is being lost"

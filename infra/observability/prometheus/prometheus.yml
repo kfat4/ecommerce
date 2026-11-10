@@ -1,0 +1,48 @@
+# =================================================================================================
+#  Prometheus – pull model. Targets are discovered from Eureka, so `docker compose up --scale order-service=4`
+#  is picked up automatically (and dead replicas disappear), no static target lists to maintain.
+# =================================================================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: local
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # Every service replica registered in Eureka -> http://<ip>:<port>/actuator/prometheus
+  - job_name: ecommerce-services
+    metrics_path: /actuator/prometheus
+    eureka_sd_configs:
+      - server: http://discovery-server:8761/eureka
+        refresh_interval: 15s
+    relabel_configs:
+      - source_labels: [__meta_eureka_app_name]          # ORDER-SERVICE -> order-service
+        target_label: service
+        action: lowercase
+      - source_labels: [__meta_eureka_app_instance_id]   # order-service:<uuid> – stable per replica
+        target_label: instance
+
+  # The registry itself does not register in Eureka
+  - job_name: discovery-server
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["discovery-server:8761"]
+        labels:
+          service: discovery-server
+
+  # Health of the telemetry pipeline (queue size, refused/failed spans and logs)
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8888"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,0 +1,28 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: search-service
+  config:
+    import: classpath:ecommerce-common.yml
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URL:http://localhost:9200}
+    connection-timeout: 2s
+    socket-timeout: 5s
+  http:
+    clients:
+      connect-timeout: 1s
+      read-timeout: 10s       # export pages for the backfill
+
+ecommerce:
+  search:
+    index:
+      alias: products
+      index-name: products-v1
+      definition: elasticsearch/products-v1.json
+  security:
+    jwt:
+      public-paths:
+        - /api/v1/search/products
+        - /api/v1/search/products/suggest

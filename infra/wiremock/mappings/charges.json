@@ -1,0 +1,70 @@
+{
+  "mappings": [
+    {
+      "name": "Decline when amount > 10000 (business failure -> saga compensation)",
+      "priority": 1,
+      "request": {
+        "method": "POST",
+        "urlPath": "/v1/charges",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.amount > 10000)]" }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "id": "ch_{{request.headers.Idempotency-Key}}",
+          "status": "DECLINED",
+          "declineReason": "INSUFFICIENT_FUNDS"
+        },
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "name": "Flaky provider for 5000 < amount <= 10000: first call 503, next call OK (shows Retry)",
+      "priority": 2,
+      "scenarioName": "flaky-provider",
+      "requiredScenarioState": "Started",
+      "newScenarioState": "Recovered",
+      "request": {
+        "method": "POST",
+        "urlPath": "/v1/charges",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.amount > 5000 && @.amount <= 10000)]" }]
+      },
+      "response": {
+        "status": 503,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "error": "temporarily_unavailable" }
+      }
+    },
+    {
+      "name": "Flaky provider recovered",
+      "priority": 2,
+      "scenarioName": "flaky-provider",
+      "requiredScenarioState": "Recovered",
+      "newScenarioState": "Started",
+      "request": {
+        "method": "POST",
+        "urlPath": "/v1/charges",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.amount > 5000 && @.amount <= 10000)]" }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "id": "ch_{{request.headers.Idempotency-Key}}", "status": "APPROVED" },
+        "transformers": ["response-template"]
+      }
+    },
+    {
+      "name": "Default: approve with realistic latency. Same Idempotency-Key -> same charge id",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/v1/charges" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": { "id": "ch_{{request.headers.Idempotency-Key}}", "status": "APPROVED" },
+        "transformers": ["response-template"],
+        "delayDistribution": { "type": "lognormal", "median": 150, "sigma": 0.4 }
+      }
+    }
+  ]
+}
