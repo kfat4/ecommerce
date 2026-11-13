@@ -7,3 +7,7 @@ docs
 *.md
 .env
 .env.*
+.github
+scripts
+infra
+Makefile

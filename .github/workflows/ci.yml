@@ -1,0 +1,99 @@
+# =================================================================================================
+#  CI – fast feedback first, expensive checks last.
+#
+#    build    compile + unit tests + Testcontainers integration tests (./mvnw verify)
+#    config   static validation of everything that is not Java: compose, Prometheus rules,
+#             Alertmanager config, Grafana dashboards, Claude Code hook
+#    smoke    start the real stack with docker compose and run an end-to-end order through it
+#
+#  Actions are pinned to a commit SHA (the tag is in the comment): a moved tag cannot change what runs here.
+# =================================================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true        # a newer push makes the older run irrelevant
+
+permissions:
+  contents: read                  # least privilege: the workflow only reads the repository
+
+jobs:
+  build:
+    name: Build, unit and integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1         # v7.0.1
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78       # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - name: Build and test (unit tests, then *IT with Testcontainers)
+        run: ./mvnw -B -ntp verify
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          retention-days: 7
+
+  config:
+    name: Validate infrastructure configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1         # v7.0.1
+      - name: docker compose files
+        run: |
+          docker compose config -q
+          docker compose --profile observability --profile search-tools config -q
+      - name: Prometheus configuration and alert rules
+        run: |
+          docker run --rm -v "$PWD/infra/observability/prometheus:/etc/prometheus:ro" \
+            --entrypoint promtool prom/prometheus:v3.15.1 check config /etc/prometheus/prometheus.yml
+      - name: Alertmanager configuration
+        run: |
+          docker run --rm -v "$PWD/infra/observability/alertmanager:/etc/alertmanager:ro" \
+            --entrypoint amtool prom/alertmanager:v0.34.2 check-config /etc/alertmanager/alertmanager.yml
+      - name: Grafana dashboards and Claude Code settings are valid JSON
+        run: |
+          for file in infra/observability/grafana/dashboards/*.json .claude/settings.json; do
+            python3 -m json.tool "$file" > /dev/null && echo "ok  $file"
+          done
+      - name: Guard hook blocks what it must block
+        run: scripts/test-guard-hook.sh
+
+  smoke:
+    name: End-to-end smoke test (docker compose)
+    needs: build                  # no point starting the stack if the code does not even build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1         # v7.0.1
+      - name: Build images
+        run: docker compose build
+      - name: Start the core stack (one replica per service to fit the runner)
+        run: |
+          docker compose up -d \
+            --scale product-service=1 --scale inventory-service=1 --scale order-service=1 \
+            --scale payment-service=1 --scale search-service=1 --scale kafka-ui=0
+      - name: Run the smoke test
+        run: scripts/smoke-test.sh http://localhost:8080
+      - name: Container status and logs
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --tail 200
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v --remove-orphans

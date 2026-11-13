@@ -1,6 +1,6 @@
 # Project state
 
-Updated: 2026-11-14
+Updated: 2026-11-14 (phase 1 in progress)
 
 ## Built and unit-tested
 
@@ -18,9 +18,13 @@ Updated: 2026-11-14
 
 - Nothing has run in Docker. First `docker compose up` will likely surface configuration mistakes.
 - Testcontainers ITs (`StockProceduresIT`, `ElasticsearchProductIndexIT`) have never been executed.
+- `scripts/smoke-test.sh` and `.github/workflows/ci.yml` are written but have never run.
 - Kibana APM UI with OTel-native data, Grafana → Kibana exemplar links, alert rule expressions.
 
 ## Next (see docs/roadmap.md)
 
-Phase 1 "make it real": run the stack, wire failsafe for ITs, CI pipeline, fix what breaks.
-The user has not yet chosen which phase to start.
+Phase 1 "make it real" (branch `feat/phase-1-ci-and-its`):
+- done: failsafe wired, smoke test script, CI workflow (build / config / smoke), Makefile, guard-hook test.
+- blocked: Docker Desktop on the owner's machine is hung (backend log stops 2026-11-08, `docker info`
+  never returns). It needs a restart by the owner. Until then ITs and the stack can only run in CI.
+- next: get CI green (expect fixes), then start the stack locally and verify observability with real data.

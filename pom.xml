@@ -97,5 +97,17 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <!--
+              Integration tests (*IT) run in the `verify` phase, after packaging:
+                ./mvnw test      unit tests only, no Docker needed
+                ./mvnw verify    + Testcontainers ITs (skipped automatically when Docker is not available)
+              Executions and classesDirectory come from spring-boot-starter-parent's pluginManagement.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
 </project>
