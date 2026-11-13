@@ -9,7 +9,7 @@ Her faz aynı döngüyle yürür: `solution-architect` tasarlar ve ADR yazar →
 | Faz | Başlık | Durum |
 |---|---|---|
 | 0 | Temel: 9 servis, saga, outbox, idempotency, arama, gözlemlenebilirlik | tamam (birim testleri geçiyor, Docker'da denenmedi) |
-| 1 | Gerçek yap: çalıştır, test et, CI | sıradaki |
+| 1 | Gerçek yap: çalıştır, test et, CI | sürüyor (CI, IT bağlantısı ve deneme betiği yazıldı; henüz hiçbiri çalışmadı) |
 | 2 | Satın alma yolculuğu: sepet, fiyat, checkout | bekliyor |
 | 3 | Sipariş sonrası: kargo, iade, gerçek bildirim | bekliyor |
 | 4 | Sözleşmeler ve API olgunluğu | bekliyor |

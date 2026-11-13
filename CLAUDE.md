@@ -15,15 +15,19 @@ agentic development. The owner is a senior Java developer growing into a microse
 ./mvnw -q -DskipTests package                 # compile everything
 ./mvnw test                                   # all unit tests (no Docker needed)
 ./mvnw -pl services/order-service -am test    # one module + what it depends on
-./mvnw -pl services/inventory-service -am test -Dtest='*IT' -Dsurefire.failIfNoSpecifiedTests=false
-                                              # Testcontainers ITs (need Docker; *IT is NOT run by plain `test` yet)
+./mvnw verify                                 # + Testcontainers ITs (*IT, failsafe; need a working Docker)
 docker compose config -q                      # validate compose after editing it
-docker compose up -d --build                  # core stack
-docker compose --profile observability up -d  # + Kibana, Prometheus, Grafana, Alertmanager
+docker compose up -d --build                  # core stack                      (make up)
+docker compose --profile observability up -d  # + Kibana, Prometheus, Grafana   (make up-obs)
+scripts/smoke-test.sh                         # end-to-end order through the gateway (make smoke)
 ```
 
+`make help` lists the shortcuts. CI (`.github/workflows/ci.yml`) runs `verify`, config validation and the
+smoke test on every pull request.
+
 Run the narrowest test that proves the change, then the full `./mvnw test` before saying "done".
-Docker is often not running on this machine: if you could not start the stack, say so plainly.
+Docker is often not running on this machine: if you could not start the stack, say so plainly. A hung Docker
+Desktop makes `./mvnw verify` stall in the first `*IT` (Testcontainers waits on the socket); use `./mvnw test`.
 
 ## Layout
 
@@ -32,6 +36,7 @@ libs/common-lib          contracts (events/commands), outbox, inbox, idempotency
 libs/observability-lib   OTel logs+traces, Prometheus registry, shared logback, low-precedence defaults
 services/<name>          one Spring Boot app each: api/ application/ domain/ (+ saga/, outbox/, client/ ...)
 infra/                   observability configs, postgres init, wiremock, pom template
+scripts/                 smoke test, guard-hook test
 docs/                    architecture, ADRs, roadmap, learning curriculum (Turkish)
 .claude/                 agents, skills, rules, hooks, shared memory
 ```

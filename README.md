@@ -45,6 +45,14 @@ docker compose up -d --build
 docker compose --profile observability up -d
 ```
 
+Yığın ayağa kalktıktan sonra uçtan uca deneme (kayıt, giriş, üç sipariş senaryosu, arama):
+
+```bash
+scripts/smoke-test.sh
+```
+
+Kısayollar için `make help`.
+
 | Arayüz | Adres |
 |---|---|
 | API gateway | http://localhost:8080 |
