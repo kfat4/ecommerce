@@ -36,6 +36,11 @@ Format: `YYYY-MM-DD` – problem → cause → fix. `verified:` says how we know
 - 2026-11-11 – With `action.auto_create_index` restricted, OTel data streams need
   `+logs-*,+traces-*,+metrics-*,+.*` allowed or the collector cannot write. unverified (never run).
 
+- 2026-11-14 – Jackson 3 fails on a missing/null value for a primitive (`FAIL_ON_NULL_FOR_PRIMITIVES` is on by
+  default). With Elasticsearch source filtering, map the partial `_source` to a type that has only the fetched
+  fields (suggest returns `Suggestion`, not `ProductDocument`). Found by `ElasticsearchProductIndexIT` in CI:
+  `/suggest` would have answered 503 for every request. verified: first CI run on PR #2.
+
 ## MongoDB
 
 - 2026-11-10 – Multi-document transactions need a replica set, even with one node (`--replSet rs0`), and

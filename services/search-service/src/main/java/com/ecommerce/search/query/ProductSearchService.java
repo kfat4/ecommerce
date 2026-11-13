@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class ProductSearchService {
@@ -52,11 +53,14 @@ public class ProductSearchService {
         if (prefix == null || prefix.isBlank()) {
             return List.of();
         }
-        SearchResponse<ProductDocument> response = execute(() ->
-                client.search(queries.suggest(prefix.strip(), size), ProductDocument.class));
+        // The suggest query fetches only `id` and `name` (source filtering). Deserialize into a type that has
+        // exactly those fields: mapping the partial _source to ProductDocument fails, because Jackson 3 refuses
+        // to put a missing value into a primitive (`long version`, `boolean active`).
+        SearchResponse<Suggestion> response = execute(() ->
+                client.search(queries.suggest(prefix.strip(), size), Suggestion.class));
         return response.hits().hits().stream()
-                .filter(h -> h.source() != null)
-                .map(h -> new Suggestion(h.source().id(), h.source().name()))
+                .map(Hit::source)
+                .filter(Objects::nonNull)
                 .toList();
     }
 

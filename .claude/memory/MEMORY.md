@@ -17,8 +17,8 @@ Entries are claims with a date, not truth. Verify against the code before acting
 - Roadmap and gap analysis versus a real e-commerce platform: `docs/roadmap.md`.
 - The Docker stack has never been started on the owner's machine (as of 2026-11-14). Compose,
   collector config, alert rules and dashboards are statically validated only.
-- Integration tests (`*IT`) run in `./mvnw verify` (failsafe, since 2026-11-14) but have never actually
-  executed: local Docker was hung. First real run is expected in CI.
+- Integration tests (`*IT`) run in `./mvnw verify` (failsafe, since 2026-11-14). They run in CI; locally
+  they need a working Docker (the owner's Docker Desktop was hung on 2026-11-14).
 - `docs/learning/` (curriculum, lesson notes) is the owner's personal material: git-ignored, never commit it
   (user instruction, 2026-11-14). `tech-mentor` therefore uses local memory.
 - Per-agent memory is separate: `.claude/agent-memory/<agent>/MEMORY.md` (each agent curates its own).
