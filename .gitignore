@@ -26,3 +26,11 @@ infra/observability/alertmanager/secrets/
 
 # OS / logs
 *.log
+
+# Claude Code: personal / machine-local files (shared config under .claude/ IS committed)
+CLAUDE.local.md
+.claude/agent-memory-local/
+.claude/worktrees/
+
+# Personal learning material (curriculum, lesson notes, progress): stays on the owner's machine
+docs/learning/
