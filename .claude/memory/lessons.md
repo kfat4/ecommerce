@@ -45,10 +45,18 @@ Format: `YYYY-MM-DD` – problem → cause → fix. `verified:` says how we know
 
 - 2026-11-11 – `./mvnw -rf :module` fails if `common-lib` is not installed in `~/.m2`; run the full
   reactor or `-pl <module> -am`.
-- 2026-11-14 – Tests named `*IT` are not run by Surefire and there is no Failsafe plugin configured, so
-  ITs run only with `-Dtest='*IT'`.
+- 2026-11-14 – `*IT` tests run in `verify` through failsafe. Declaring the plugin in the root pom is enough:
+  spring-boot-starter-parent's pluginManagement supplies the executions and `classesDirectory`.
+  verified: effective-pom.
+- 2026-11-14 – `@Testcontainers(disabledWithoutDocker = true)` only skips when Docker is absent. If the
+  socket exists but the daemon hangs, the test JVM blocks for minutes. verified: observed locally.
 - 2026-11-11 – YAML: `targets: [host:9093]` is a parse error in strict parsers; quote it.
 - 2026-11-11 – Verify image tags exist before pinning (Docker Hub API or registry). Tags used:
   `elasticsearch:9.2.8`, `kibana:9.2.8`, `elastic/elastic-agent:9.2.8`, `prom/prometheus:v3.15.1`,
   `prom/alertmanager:v0.34.2`, `grafana/grafana:13.0.13`. verified: tags existed on 2026-11-11.
-- 2026-11-11 – zsh treats `--include=*.java` and `?` in unquoted arguments as globs; quote them.
+  Also verified on 2026-11-14: `maven:3.9-eclipse-temurin-25`, `eclipse-temurin:25-jre`, `postgres:17-alpine`,
+  `mongo:7.0`, `redis:7.4-alpine`, `apache/kafka:4.3.2`, `wiremock/wiremock:3.13.2`, `kafbat/kafka-ui:v1.5.0`.
+- 2026-11-14 – GitHub Actions are pinned by commit SHA in `ci.yml` (checkout v7.0.1, setup-java v6.2.0,
+  upload-artifact v7.0.2). Resolve a tag's SHA with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
+- 2026-11-11 – zsh treats `--include=*.java` and `?` in unquoted arguments as globs; quote them. zsh also
+  does not word-split unquoted variables (`set -- $pair` keeps one argument); use `while read -r a b`.
