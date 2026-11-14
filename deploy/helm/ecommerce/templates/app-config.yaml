@@ -1,0 +1,38 @@
+# Spring config for the `kubernetes` profile, mounted into every service at /config/.
+# The code keeps calling `lb://product-service` / `http://product-service`; only where that name points changes:
+#   docker compose -> Eureka registry (each replica registers itself, client-side load balancing)
+#   Kubernetes     -> the Service DNS name below (kube-proxy load-balances across the pods)
+# See docs/adr/0009-kubernetes-servis-kesfi.md.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecommerce-app-config
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "ecommerce-app-config" "component" "config") | nindent 4 }}
+data:
+  application-kubernetes.yml: |
+    eureka:
+      client:
+        enabled: false
+    spring:
+      cloud:
+        discovery:
+          client:
+            simple:
+              instances:
+                {{- range $name, $svc := .Values.services }}
+                {{ $name }}:
+                  - uri: http://{{ $name }}:{{ $svc.port }}
+                {{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ecommerce-secrets
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "ecommerce-secrets" "component" "config") | nindent 4 }}
+type: Opaque
+stringData:
+  JWT_SECRET: {{ .Values.secrets.jwtSecret | quote }}
+  POSTGRES_USER: {{ .Values.secrets.postgresUser | quote }}
+  POSTGRES_PASSWORD: {{ .Values.secrets.postgresPassword | quote }}

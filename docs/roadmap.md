@@ -13,7 +13,7 @@ Her faz aynı döngüyle yürür: `solution-architect` tasarlar ve ADR yazar →
 | 2 | Satın alma yolculuğu: sepet, fiyat, checkout | bekliyor |
 | 3 | Sipariş sonrası: kargo, iade, gerçek bildirim | bekliyor |
 | 4 | Sözleşmeler ve API olgunluğu | bekliyor |
-| 5 | Platform: Kubernetes, CD, gizli bilgi yönetimi | bekliyor |
+| 5 | Platform: Kubernetes, CD, gizli bilgi yönetimi | başladı (Helm chart, Docker Desktop'ta çalışıyor) |
 | 6 | Güvenlik sertleştirme | bekliyor |
 | 7 | Ölçek ve dayanıklılık kanıtı | bekliyor |
 
@@ -69,8 +69,8 @@ gibi yönetmek.
 
 ## Faz 5 – Platform
 
-- Her servis için Helm chart; probe'lar, kaynak sınırları, HPA, PodDisruptionBudget.
-- Eureka yerine Kubernetes DNS (ADR ile karar).
+- ~~Her servis için Helm chart; probe'lar, kaynak sınırları~~ (yapıldı, [03-kubernetes.md](architecture/03-kubernetes.md)); HPA, PodDisruptionBudget.
+- ~~Eureka yerine Kubernetes DNS~~ (yapıldı: [ADR-0009](adr/0009-kubernetes-servis-kesfi.md)).
 - ConfigMap + gizli bilgi yönetimi (Vault ya da External Secrets).
 - İmaj yayını (GHCR), sürüm etiketleme, SBOM.
 - Argo CD ile GitOps; canary yayın.
