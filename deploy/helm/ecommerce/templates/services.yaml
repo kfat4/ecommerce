@@ -1,0 +1,132 @@
+{{- /* One Deployment + Service per Spring Boot service, generated from .Values.services. */ -}}
+{{- $root := . }}
+{{- range $name, $svc := .Values.services }}
+{{- $d := mergeOverwrite (deepCopy $root.Values.serviceDefaults) $svc }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ecommerce.labels" (dict "name" $name "component" "service") | nindent 4 }}
+spec:
+  replicas: {{ $d.replicas }}
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" $name "component" "service") | nindent 8 }}
+      annotations:
+        # Restart pods when the shared config changes (a ConfigMap edit alone does not restart anything).
+        checksum/config: {{ include (print $root.Template.BasePath "/app-config.yaml") $root | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: {{ $svc.port | quote }}
+    spec:
+      enableServiceLinks: false   # no legacy <SERVICE>_PORT env vars; they clash with Spring and Kafka settings
+      terminationGracePeriodSeconds: 30
+      {{- with $svc.waitFor }}
+      initContainers:
+        # Kubernetes has no depends_on. Without this the pod crash-loops (with growing back-off) until the
+        # database or broker is up; waiting here makes start-up faster and the logs readable.
+        - name: wait-for-dependencies
+          image: {{ $root.Values.infra.waitImage }}
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              for target in {{ join " " . }}; do
+                host=${target%:*}; port=${target#*:}
+                until nc -z -w 2 "$host" "$port"; do echo "waiting for $target"; sleep 2; done
+              done
+      {{- end }}
+      containers:
+        - name: app
+          image: "{{ $root.Values.image.registry }}/{{ $name }}:{{ $root.Values.image.tag }}"
+          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: kubernetes
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: optional:file:/config/
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: MONGO_HOST
+              value: mongo
+            - name: REDIS_HOST
+              value: redis
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: ELASTICSEARCH_URL
+              value: http://elasticsearch:9200
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: kubernetes
+            {{- if $root.Values.observability.otlpEndpoint }}
+            - name: OTLP_ENDPOINT
+              value: {{ $root.Values.observability.otlpEndpoint | quote }}
+            - name: TRACING_SAMPLING
+              value: {{ $root.Values.observability.tracingSampling | quote }}
+            {{- else }}
+            - name: OTLP_LOGS_ENABLED
+              value: "false"
+            - name: TRACING_SAMPLING      # nothing to send spans to
+              value: "0.0"
+            {{- end }}
+            {{- range $k, $v := $svc.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: ecommerce-secrets
+          volumeMounts:
+            - name: app-config
+              mountPath: /config
+              readOnly: true
+          resources:
+            {{- toYaml $d.resources | nindent 12 }}
+          # Three probes, three questions:
+          #   startup   – has the JVM finished starting? (the other two wait for it)
+          #   liveness  – is the process stuck? -> restart the container
+          #   readiness – can it take traffic now? -> remove from the Service endpoints, no restart
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: {{ $d.startupProbe.periodSeconds }}
+            failureThreshold: {{ $d.startupProbe.failureThreshold }}
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            # Give kube-proxy time to drop the pod from the Service before Spring stops accepting requests.
+            preStop:
+              sleep: { seconds: 5 }
+      volumes:
+        - name: app-config
+          configMap:
+            name: ecommerce-app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ecommerce.labels" (dict "name" $name "component" "service") | nindent 4 }}
+spec:
+  type: {{ $svc.serviceType | default "ClusterIP" }}
+  selector:
+    {{- include "ecommerce.selector" (dict "name" $name) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: http
+{{- end }}
