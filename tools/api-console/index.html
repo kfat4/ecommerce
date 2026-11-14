@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E-commerce API Konsolu</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #1b1f24; --muted: #5b6573; --line: #d9dee5; --soft: #eef1f5;
+  --accent: #2f6fdb; --sync: #2f6fdb; --async: #b4561f; --ok: #1d7a46; --warn: #a86a00; --err: #c0392b;
+  --get: #1d7a46; --post: #2f6fdb; --put: #a86a00; --delete: #c0392b;
+  --node: #ffffff; --node-ink: #1b1f24; --active: #f2b705;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111418; --panel: #191d23; --ink: #e6e9ee; --muted: #9aa4b2; --line: #2c333d; --soft: #222831;
+    --accent: #6ea2ff; --sync: #6ea2ff; --async: #f0915a; --ok: #4cc37f; --warn: #e3a93a; --err: #ff6b5e;
+    --get: #4cc37f; --post: #6ea2ff; --put: #e3a93a; --delete: #ff6b5e; --node: #1f252d; --node-ink: #e6e9ee;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111418; --panel: #191d23; --ink: #e6e9ee; --muted: #9aa4b2; --line: #2c333d; --soft: #222831;
+  --accent: #6ea2ff; --sync: #6ea2ff; --async: #f0915a; --ok: #4cc37f; --warn: #e3a93a; --err: #ff6b5e;
+  --get: #4cc37f; --post: #6ea2ff; --put: #e3a93a; --delete: #ff6b5e; --node: #1f252d; --node-ink: #e6e9ee;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
+h1 { font-size: 17px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pill { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.pill b { color: var(--ink); font-weight: 600; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: 1px; }
+.dot.up { background: var(--ok); } .dot.down { background: var(--err); }
+button { font: inherit; border: 1px solid var(--line); background: var(--soft); color: var(--ink); border-radius: 6px;
+  padding: 5px 11px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+main { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; padding: 16px; max-width: 1500px; margin: 0 auto; }
+@media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+code, pre, .mono { font-family: var(--mono); font-size: 12.5px; }
+
+/* diagram */
+svg#map { width: 100%; height: auto; display: block; }
+.node rect { fill: var(--node); stroke: var(--line); stroke-width: 1.5; rx: 8; transition: stroke .2s, fill .2s; }
+.node text { fill: var(--node-ink); font-size: 13px; font-weight: 600; }
+.node text.sub { fill: var(--muted); font-size: 10.5px; font-weight: 400; }
+.node.svc { cursor: pointer; }
+.node.svc:hover rect, .node.selected rect { stroke: var(--accent); stroke-width: 2.5; }
+.node.hit rect { stroke: var(--active); stroke-width: 3; }
+.edge { fill: none; stroke-width: 1.6; opacity: .55; transition: opacity .2s, stroke-width .2s; }
+.edge.sync { stroke: var(--sync); }
+.edge.async { stroke: var(--async); stroke-dasharray: 6 4; }
+.edge.reg { stroke: var(--muted); stroke-dasharray: 2 4; }
+.edge.hit { opacity: 1; stroke-width: 3.2; stroke: var(--active); animation: flow .6s linear infinite; stroke-dasharray: 8 5; }
+@keyframes flow { to { stroke-dashoffset: -26; } }
+@media (prefers-reduced-motion: reduce) { .edge.hit { animation: none; } }
+.kafka rect { fill: var(--soft); stroke: var(--async); stroke-width: 1.5; }
+.lbl { fill: var(--muted); font-size: 10.5px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 26px; height: 0; border-top: 2px solid var(--sync); vertical-align: middle; margin-right: 6px; }
+.legend i.a { border-top: 2px dashed var(--async); } .legend i.h { border-top: 3px solid var(--active); }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: -4px -4px 12px; flex-wrap: wrap; }
+.tabs button { border: 0; background: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 7px 12px; color: var(--muted); }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+.tab { display: none; } .tab.on { display: block; }
+
+/* endpoints */
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.filters button { font-size: 12px; padding: 3px 9px; }
+.filters button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ep { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+.ep > summary { list-style: none; cursor: pointer; padding: 8px 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ep > summary::-webkit-details-marker { display: none; }
+.ep[open] > summary { background: var(--soft); }
+.m { font: 700 11px var(--mono); padding: 2px 6px; border-radius: 4px; color: #fff; min-width: 54px; text-align: center; }
+.m.GET { background: var(--get); } .m.POST { background: var(--post); } .m.PUT { background: var(--put); } .m.DELETE { background: var(--delete); }
+.path { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+.tag { font-size: 11px; border-radius: 4px; padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); }
+.tag.admin { border-color: var(--err); color: var(--err); } .tag.user { border-color: var(--warn); color: var(--warn); }
+.tag.public { border-color: var(--ok); color: var(--ok); } .tag.idem { border-color: var(--accent); color: var(--accent); }
+.ep-body { padding: 10px; display: grid; gap: 8px; }
+.ep-body label { font-size: 12px; color: var(--muted); display: grid; gap: 3px; }
+input, textarea, select { font: 12.5px var(--mono); width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bg); color: var(--ink); }
+textarea { min-height: 90px; resize: vertical; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.note { font-size: 12.5px; background: var(--soft); border-left: 3px solid var(--accent); padding: 7px 10px; border-radius: 0 6px 6px 0; }
+
+/* response */
+.status { font: 700 13px var(--mono); }
+.s2 { color: var(--ok); } .s3 { color: var(--accent); } .s4 { color: var(--warn); } .s5 { color: var(--err); }
+pre.out { background: var(--soft); border-radius: 8px; padding: 10px; margin: 8px 0 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.hist { max-height: 220px; overflow: auto; }
+.hist div { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 12px; cursor: pointer; }
+.hist div:hover { background: var(--soft); }
+
+/* scenarios */
+.scn { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+.scn h3 { margin: 0 0 4px; font-size: 14px; }
+ol.steps { margin: 8px 0 0; padding-left: 20px; font-size: 12.5px; }
+ol.steps li { margin: 2px 0; }
+ol.steps li.ok::marker { color: var(--ok); } ol.steps li.bad::marker { color: var(--err); }
+ol.steps li.ok { color: var(--ink); } ol.steps li.bad { color: var(--err); } ol.steps li.run { color: var(--accent); }
+.timeline { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.timeline span { font: 11px var(--mono); padding: 2px 7px; border-radius: 4px; background: var(--soft); border: 1px solid var(--line); }
+.timeline span.CONFIRMED { border-color: var(--ok); color: var(--ok); }
+.timeline span.CANCELLED { border-color: var(--err); color: var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>E-commerce · Servisler Arası İletişim ve API Konsolu</h1>
+  <div class="pills">
+    <span class="pill" id="gwPill"><span class="dot"></span>Gateway <b>?</b></span>
+    <span class="pill" id="eurekaPill"><span class="dot"></span>Eureka <b>?</b></span>
+    <span class="pill" id="userPill">Oturum: <b>yok</b></span>
+    <button id="loginCustomer">Müşteri olarak gir</button>
+    <button id="loginAdmin">Admin olarak gir</button>
+    <button id="logout">Çıkış</button>
+    <button id="themeBtn" title="Tema">◐</button>
+  </div>
+</header>
+
+<main>
+  <div class="stack">
+    <section class="card">
+      <h2>Mimari harita</h2>
+      <p class="muted small" style="margin:-4px 0 8px">Bir servise tıkla: uç noktaları o servise göre süzülür. Bir istek gönderdiğinde
+        geçtiği yollar sarı yanar. Düz çizgi senkron HTTP, kesikli çizgi Kafka mesajıdır.</p>
+      <svg id="map" viewBox="0 0 760 470" role="img" aria-label="Servis haritası">
+        <defs>
+          <marker id="arS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--sync)"/></marker>
+          <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--async)"/></marker>
+        </defs>
+        <g id="edges"></g>
+        <g id="nodes"></g>
+      </svg>
+      <div class="legend">
+        <span><i></i>Senkron HTTP (timeout + retry + circuit breaker)</span>
+        <span><i class="a"></i>Kafka mesajı (outbox → topic → inbox)</span>
+        <span><i class="h"></i>Son isteğin yolu</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Yanıt</h2>
+        <span class="small muted" id="respMeta"></span>
+      </div>
+      <div id="respReq" class="mono small muted" style="margin-top:6px">Henüz istek yok.</div>
+      <table id="respHeaders" style="margin-top:8px"></table>
+      <pre class="out" id="respBody">—</pre>
+    </section>
+
+    <section class="card">
+      <h2>Geçmiş</h2>
+      <div class="hist" id="history"><span class="muted small">Gönderdiğin istekler burada listelenir; tıklayınca yanıtı yeniden gösterir.</span></div>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <div class="tabs" role="tablist">
+        <button class="on" data-tab="tEndpoints">Uç noktalar</button>
+        <button data-tab="tScenarios">Senaryolar (saga)</button>
+        <button data-tab="tEvents">Olay kataloğu</button>
+        <button data-tab="tRegistry">Kayıt (Eureka)</button>
+      </div>
+
+      <div class="tab on" id="tEndpoints">
+        <div class="filters" id="filters"></div>
+        <div id="endpoints"></div>
+      </div>
+
+      <div class="tab" id="tScenarios">
+        <p class="small muted" style="margin-top:0">Her senaryo gerçek istekleri sırayla gönderir ve siparişin durumunu (saga) sonuçlanana
+          kadar sorgular. Gerekirse önce müşteri olarak giriş yapar.</p>
+        <div id="scenarios"></div>
+      </div>
+
+      <div class="tab" id="tEvents">
+        <p class="small muted" style="margin-top:0">Servisler birbirine bu topic'ler üzerinden mesaj gönderir. Her topic 3 partition'lıdır ve
+          bir <code>.DLT</code> eşi vardır. Mesaj anahtarı sıralamayı belirler: aynı siparişin mesajları aynı partition'a düşer.</p>
+        <table id="eventTable"></table>
+      </div>
+
+      <div class="tab" id="tRegistry">
+        <div class="row" style="justify-content:space-between">
+          <p class="small muted" style="margin:0">Gateway, <code>lb://servis-adı</code> rotalarını bu kayıttan çözer; aynı servisin her replikası
+            burada ayrı satırdır.</p>
+          <button id="refreshRegistry">Yenile</button>
+        </div>
+        <table id="registryTable" style="margin-top:8px"></table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+// ---------- architecture model ----------
+const NODES = {
+  client:       { x: 10,  y: 205, w: 92,  label: "İstemci",       sub: "tarayıcı / mobil" },
+  eureka:       { x: 132, y: 70,  w: 128, label: "discovery",     sub: "Eureka :8761" },
+  gateway:      { x: 132, y: 205, w: 128, label: "api-gateway",   sub: ":8080 · JWT · Redis", svc: "gateway" },
+  auth:         { x: 315, y: 20,  w: 170, label: "auth",          sub: "PostgreSQL auth_db", svc: "auth" },
+  product:      { x: 315, y: 80,  w: 170, label: "product",       sub: "MongoDB + Redis cache", svc: "product" },
+  search:       { x: 315, y: 140, w: 170, label: "search",        sub: "Elasticsearch (CQRS)", svc: "search" },
+  notification: { x: 315, y: 200, w: 170, label: "notification",  sub: "MongoDB", svc: "notification" },
+  order:        { x: 315, y: 260, w: 170, label: "order",         sub: "PostgreSQL · saga", svc: "order" },
+  inventory:    { x: 315, y: 320, w: 170, label: "inventory",     sub: "PostgreSQL · FOR UPDATE", svc: "inventory" },
+  payment:      { x: 315, y: 380, w: 170, label: "payment",       sub: "PostgreSQL", svc: "payment" },
+  provider:     { x: 590, y: 410, w: 160, label: "ödeme sağlayıcı", sub: "WireMock :9999" },
+};
+const H = 44;
+const KAFKA = { x: 620, y: 80, w: 120, h: 310 };
+const mid = n => ({ cx: n.x + n.w / 2, cy: n.y + H / 2, r: n.x + n.w, l: n.x, t: n.y, b: n.y + H });
+
+function edgeDefs() {
+  const e = [];
+  const gw = mid(NODES.gateway);
+  e.push({ id: "client-gateway", kind: "sync", d: `M${mid(NODES.client).r},${gw.cy} L${gw.l},${gw.cy}` });
+  e.push({ id: "gateway-eureka", kind: "reg", d: `M${gw.cx},${gw.t} L${gw.cx},${mid(NODES.eureka).b}` });
+  for (const s of ["auth", "product", "search", "notification", "order", "inventory", "payment"]) {
+    const n = mid(NODES[s]);
+    e.push({ id: "gateway-" + s, kind: "sync", d: `M${gw.r},${gw.cy} C${gw.r + 30},${gw.cy} ${n.l - 30},${n.cy} ${n.l},${n.cy}` });
+  }
+  // sync service-to-service calls (bulge right, between services and Kafka)
+  const p = mid(NODES.product), o = mid(NODES.order), s = mid(NODES.search), pay = mid(NODES.payment), pr = mid(NODES.provider);
+  e.push({ id: "order-product", kind: "sync", label: "fiyat", lx: 548, ly: 180,
+    d: `M${o.r},${o.cy - 8} C${o.r + 85},${o.cy - 8} ${p.r + 85},${p.cy + 8} ${p.r},${p.cy + 8}` });
+  e.push({ id: "search-product", kind: "sync", label: "backfill", lx: 500, ly: 120,
+    d: `M${s.r},${s.cy - 6} C${s.r + 30},${s.cy - 6} ${p.r + 30},${p.cy + 2} ${p.r},${p.cy + 2}` });
+  e.push({ id: "payment-provider", kind: "sync", label: "tahsilat", lx: 520, ly: 446,
+    d: `M${pay.r},${pay.cy + 8} C${pay.r + 50},${pay.cy + 8} ${pr.l - 50},${pr.cy} ${pr.l},${pr.cy}` });
+  // Kafka
+  const kx = KAFKA.x;
+  const toK = (svc, dy = 0) => `M${mid(NODES[svc]).r},${mid(NODES[svc]).cy + dy} L${kx},${mid(NODES[svc]).cy + dy}`;
+  e.push({ id: "product-kafka",      kind: "async", d: toK("product", -10), dir: "out" });
+  e.push({ id: "kafka-search",       kind: "async", d: toK("search"), dir: "in" });
+  e.push({ id: "kafka-notification", kind: "async", d: toK("notification"), dir: "in" });
+  e.push({ id: "order-kafka",        kind: "async", d: toK("order", 10), dir: "both" });
+  e.push({ id: "inventory-kafka",    kind: "async", d: toK("inventory"), dir: "both" });
+  e.push({ id: "payment-kafka",      kind: "async", d: toK("payment", -10), dir: "both" });
+  return e;
+}
+
+function svgEl(tag, attrs, text) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+function drawMap() {
+  const eg = document.getElementById("edges"), ng = document.getElementById("nodes");
+  for (const e of edgeDefs()) {
+    const attrs = { d: e.d, class: `edge ${e.kind}`, id: "e-" + e.id };
+    const m = e.kind === "async" ? "url(#arA)" : e.kind === "sync" ? "url(#arS)" : null;
+    if (m && e.dir !== "in") attrs["marker-end"] = m;
+    if (m && e.dir === "in") attrs["marker-start"] = m;
+    if (m && e.dir === "both") attrs["marker-start"] = m;
+    eg.appendChild(svgEl("path", attrs));
+    if (e.label) eg.appendChild(svgEl("text", { x: e.lx, y: e.ly, class: "lbl", "text-anchor": "middle" }, e.label));
+  }
+  // kafka box
+  const kg = svgEl("g", { class: "kafka" });
+  kg.appendChild(svgEl("rect", { x: KAFKA.x, y: KAFKA.y, width: KAFKA.w, height: KAFKA.h, rx: 10 }));
+  kg.appendChild(svgEl("text", { x: KAFKA.x + KAFKA.w / 2, y: KAFKA.y + 22, "text-anchor": "middle", fill: "var(--async)", "font-weight": 700, "font-size": 14 }, "Kafka"));
+  const topics = ["product.events", "order.events", "inventory.commands", "inventory.events", "payment.commands", "payment.events"];
+  topics.forEach((t, i) => kg.appendChild(svgEl("text", { x: KAFKA.x + KAFKA.w / 2, y: KAFKA.y + 52 + i * 40, "text-anchor": "middle", class: "lbl" }, t)));
+  ng.appendChild(kg);
+  for (const [id, n] of Object.entries(NODES)) {
+    const g = svgEl("g", { class: "node" + (n.svc ? " svc" : ""), id: "n-" + id });
+    g.appendChild(svgEl("rect", { x: n.x, y: n.y, width: n.w, height: H }));
+    g.appendChild(svgEl("text", { x: n.x + 10, y: n.y + 19 }, n.label));
+    g.appendChild(svgEl("text", { x: n.x + 10, y: n.y + 35, class: "sub" }, n.sub));
+    if (n.svc) {
+      g.setAttribute("tabindex", "0");
+      g.addEventListener("click", () => setFilter(n.svc));
+      g.addEventListener("keydown", ev => { if (ev.key === "Enter") setFilter(n.svc); });
+    }
+    ng.appendChild(g);
+  }
+}
+
+let hitTimer;
+function highlight(edges, nodes, keep) {
+  document.querySelectorAll(".edge.hit, .node.hit").forEach(el => el.classList.remove("hit"));
+  edges.forEach(id => document.getElementById("e-" + id)?.classList.add("hit"));
+  nodes.forEach(id => document.getElementById("n-" + id)?.classList.add("hit"));
+  clearTimeout(hitTimer);
+  if (!keep) hitTimer = setTimeout(() => highlight([], [], true), 6000);
+}
+
+// ---------- endpoint catalogue ----------
+const SVC_LABEL = { auth: "auth", product: "product", search: "search", order: "order", inventory: "inventory",
+  payment: "payment", notification: "notification", gateway: "gateway" };
+const via = s => ["client-gateway", "gateway-" + s];
+
+const ENDPOINTS = [
+  { svc: "auth", method: "POST", path: "/api/v1/auth/register", auth: "public",
+    body: () => ({ email: `demo-${Date.now()}@ecommerce.local`, password: "Passw0rd!", fullName: "Deneme Kullanıcı" }),
+    flow: via("auth"), note: "Yeni müşteri hesabı açar (rol: CUSTOMER). Aynı e-posta ikinci kez 422 döner." },
+  { svc: "auth", method: "POST", path: "/api/v1/auth/login", auth: "public",
+    body: () => ({ email: "customer@ecommerce.local", password: "Customer123!" }), saveToken: true,
+    flow: via("auth"), note: "JWT (HS256, 30 dk) üretir. Başarılı olursa konsol token'ı saklar ve sonraki isteklere ekler. Gateway ve her servis imzayı kendisi doğrular." },
+  { svc: "auth", method: "GET", path: "/api/v1/auth/me", auth: "user", flow: via("auth"),
+    note: "Token'daki kullanıcı kimliğiyle profili döner. Token yoksa gateway 401 verir; istek servise hiç ulaşmaz." },
+
+  { svc: "product", method: "GET", path: "/api/v1/products", auth: "public", query: "category=&page=0&size=20", flow: via("product"),
+    note: "Katalog listesi (MongoDB). Gateway GET isteklerini 2 kez yeniden dener: GET idempotent olduğu için güvenlidir." },
+  { svc: "product", method: "GET", path: "/api/v1/products/{id}", auth: "public", params: { id: "PRD-1001" }, flow: via("product"),
+    note: "Tek ürün. Önce Redis önbelleğine bakar; yanıtta Cache-Control: max-age=60 vardır." },
+  { svc: "product", method: "POST", path: "/api/v1/products", auth: "admin",
+    body: () => ({ sku: "MUG-" + Math.floor(Math.random() * 1e5), name: "Seramik Kupa", description: "350 ml", category: "home",
+      price: 149.90, currency: "TRY", attributes: { color: "beyaz" } }),
+    flow: [...via("product"), "product-kafka", "kafka-search"], nodes: ["search"],
+    note: "Ürün MongoDB'ye yazılır; aynı işlemde Mongo outbox'a ProductUpsertedEvent konur. Relay olayı product.events'e taşır, search-service indeksi günceller. Birkaç saniye sonra aramada görünür (nihai tutarlılık)." },
+  { svc: "product", method: "PUT", path: "/api/v1/products/{id}", auth: "admin", params: { id: "PRD-1002" },
+    body: () => ({ name: "Noise Cancelling Headphones", description: "Over-ear, ANC", price: 2999.00, attributes: {}, active: true }),
+    flow: [...via("product"), "product-kafka", "kafka-search"], nodes: ["search"],
+    note: "Güncelleme ürünün sürüm numarasını artırır. Elasticsearch external versioning eski sürümlü olayı 409 ile reddeder; sıra bozulsa bile indeks geriye gitmez." },
+  { svc: "product", method: "DELETE", path: "/api/v1/products/{id}", auth: "admin", params: { id: "" },
+    flow: [...via("product"), "product-kafka", "kafka-search"], nodes: ["search"],
+    note: "ProductDeletedEvent üretir; compacted topic'te tombstone olarak kalır, arama indeksinden silinir. Demo ürünlerini silme; yeni oluşturduğun bir ürünün id'sini yaz." },
+
+  { svc: "search", method: "GET", path: "/api/v1/search/products", auth: "public", query: "q=laptop&sort=RELEVANCE&page=0&size=20", flow: via("search"),
+    note: "Elasticsearch'te tam metin + facet. Türkçe karakter ve yazım hatasına toleranslı (fuzzy). sort: RELEVANCE, PRICE_ASC, PRICE_DESC, NEWEST olabilir." },
+  { svc: "search", method: "GET", path: "/api/v1/search/products/suggest", auth: "public", query: "q=lap&size=5", flow: via("search"),
+    note: "Yazarken öneri (search-as-you-type). Yalnızca id ve name alanlarını getirir." },
+  { svc: "search", method: "POST", path: "/api/v1/search/admin/reindex", auth: "admin",
+    flow: [...via("search"), "search-product"], nodes: ["product"],
+    note: "İndeksi baştan kurar: product-service'in /internal/products/export ucunu sayfa sayfa çağırır. Bu, servisler arası senkron çağrının bir örneğidir." },
+
+  { svc: "order", method: "POST", path: "/api/v1/orders", auth: "user", idem: true,
+    body: () => ({ items: [{ productId: "PRD-1003", quantity: 2 }] }),
+    flow: [...via("order"), "order-product", "order-kafka", "inventory-kafka", "payment-kafka", "payment-provider", "kafka-notification"],
+    nodes: ["product", "inventory", "payment", "notification", "provider"],
+    note: "202 Accepted + PENDING döner; gerisi asenkron saga'dır: stok rezervasyonu → ödeme → onay. Aynı Idempotency-Key ile tekrar gönderirsen yeni sipariş açılmaz, ilk yanıt 'Idempotent-Replayed: true' ile döner. Sonucu görmek için 'Senaryolar' sekmesini kullan." },
+  { svc: "order", method: "GET", path: "/api/v1/orders/{id}", auth: "user", params: { id: "" }, flow: via("order"),
+    note: "Siparişin anlık durumu: PENDING → AWAITING_PAYMENT → CONFIRMED ya da CANCELLED. Başkasının siparişini istersen 404/403 alırsın (admin hariç)." },
+  { svc: "order", method: "GET", path: "/api/v1/orders", auth: "user", query: "page=0&size=20", flow: via("order"),
+    note: "Giriş yapan kullanıcının siparişleri." },
+
+  { svc: "inventory", method: "GET", path: "/api/v1/inventory/{productId}", auth: "user", params: { productId: "PRD-1004" }, flow: via("inventory"),
+    note: "available ve reserved miktarları. Sipariş verdikten sonra reserved'ın arttığını, onaydan sonra düştüğünü izleyebilirsin." },
+  { svc: "inventory", method: "PUT", path: "/api/v1/inventory/{productId}", auth: "admin", params: { productId: "PRD-1004" },
+    body: () => ({ available: 3 }), flow: via("inventory"),
+    note: "Mutlak değer yazar; PUT doğal olarak idempotenttir. PRD-1004'ü 3'e geri çekmek stok yetersizliği senaryosunu tekrar oynatılabilir yapar." },
+
+  { svc: "payment", method: "GET", path: "/api/v1/payments/order/{orderId}", auth: "user", params: { orderId: "" }, flow: via("payment"),
+    note: "Siparişin ödeme kaydı ve sağlayıcı referansı. Sahiplik kontrolü vardır: başkasının ödemesi 403." },
+
+  { svc: "notification", method: "GET", path: "/api/v1/notifications", auth: "user", query: "page=0&size=20", flow: via("notification"),
+    note: "order.events'ten (OrderConfirmed/OrderCancelled) üretilen bildirimler. Gerçek e-posta gönderilmez, kayıt tutulur." },
+
+  { svc: "gateway", method: "GET", path: "/actuator/health", auth: "public", flow: ["client-gateway"],
+    note: "Gateway sağlık durumu (Redis, Eureka bileşenleriyle)." },
+  { svc: "gateway", method: "GET", path: "/internal/products/export", auth: "public", query: "page=0&size=5", flow: ["client-gateway"],
+    note: "Bilinçli olarak 404 beklenir: /internal/** gateway'de yönlendirilmez. Bu uç yalnızca servisler arası ağdan (search-service) erişilebilir." },
+];
+
+// ---------- state ----------
+const state = { token: null, user: null, filter: "all", history: [], lastOrderId: null, lastKey: null };
+try { const saved = JSON.parse(sessionStorage.getItem("ecomConsole") || "null"); if (saved) Object.assign(state, saved, { history: [] }); } catch (_) {}
+const persist = () => { try { sessionStorage.setItem("ecomConsole", JSON.stringify({ token: state.token, user: state.user, lastOrderId: state.lastOrderId })); } catch (_) {} };
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- HTTP ----------
+const INTERESTING = ["location", "idempotent-replayed", "x-correlation-id", "x-ratelimit-remaining", "x-ratelimit-replenish-rate",
+  "cache-control", "retry-after", "content-type", "traceparent"];
+
+async function call(method, url, { body, headers = {}, flow = [], nodes = [], quiet = false } = {}) {
+  const h = { Accept: "application/json", ...headers };
+  if (body !== undefined) h["Content-Type"] = "application/json";
+  if (state.token && !("Authorization" in h)) h.Authorization = "Bearer " + state.token;
+  if (h.Authorization === "") delete h.Authorization;   // "" means: send this request without a token
+  const started = performance.now();
+  let res, text = "", error = null;
+  highlight(flow, nodes);
+  try {
+    // no-store: always hit the server. Search answers carry Cache-Control: max-age=10, so a browser cache
+    // would hide fresh results and make eventual consistency look slower than it is.
+    res = await fetch(url, { method, headers: h, cache: "no-store", body: body === undefined ? undefined : JSON.stringify(body) });
+    text = await res.text();
+  } catch (e) { error = e; }
+  const ms = Math.round(performance.now() - started);
+  let json = null; try { json = text ? JSON.parse(text) : null; } catch (_) {}
+  const entry = { method, url, reqHeaders: h, body, ms, status: res ? res.status : 0, headers: res ? [...res.headers.entries()] : [],
+    text: error ? `Bağlanılamadı: ${error.message}\n\nKonsolu serve.py ile açtığından emin ol (bkz. README).` : text, json, at: new Date() };
+  if (!quiet) { addHistory(entry); show(entry); }
+  return entry;
+}
+
+function show(e) {
+  const cls = "s" + String(e.status)[0];
+  document.getElementById("respMeta").innerHTML = `<span class="status ${cls}">${e.status || "ERR"}</span> · ${e.ms} ms · ${e.at.toLocaleTimeString("tr-TR")}`;
+  const sent = Object.entries(e.reqHeaders).filter(([k]) => k !== "Accept")
+    .map(([k, v]) => `${k}: ${k === "Authorization" ? v.slice(0, 22) + "…" : v}`).join("\n");
+  document.getElementById("respReq").innerHTML = `<b>${esc(e.method)} ${esc(e.url)}</b>${sent ? "<br>" + esc(sent).replace(/\n/g, "<br>") : ""}`;
+  const rows = e.headers.filter(([k]) => INTERESTING.includes(k.toLowerCase()));
+  document.getElementById("respHeaders").innerHTML = rows.length
+    ? "<tr><th>Yanıt başlığı</th><th>Değer</th></tr>" + rows.map(([k, v]) => `<tr><td class="mono">${esc(k)}</td><td class="mono">${esc(v)}</td></tr>`).join("") : "";
+  document.getElementById("respBody").textContent = e.json !== null ? JSON.stringify(e.json, null, 2) : (e.text || "(gövde yok)");
+}
+
+function addHistory(e) {
+  state.history.unshift(e);
+  state.history = state.history.slice(0, 40);
+  const box = document.getElementById("history");
+  box.innerHTML = "";
+  for (const h of state.history) {
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="status s${String(h.status)[0]}">${h.status || "ERR"}</span><span class="mono">${esc(h.method)}</span>`
+      + `<span class="path">${esc(h.url)}</span><span class="muted" style="margin-left:auto">${h.ms} ms</span>`;
+    d.addEventListener("click", () => show(h));
+    box.appendChild(d);
+  }
+}
+
+// ---------- auth ----------
+function decodeJwt(t) {
+  try { return JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch (_) { return null; }
+}
+function setToken(token) {
+  state.token = token;
+  const p = token ? decodeJwt(token) : null;
+  state.user = p ? { email: p.email || p.sub, roles: p.roles || p.scope || [] } : null;
+  persist(); renderUser();
+}
+function renderUser() {
+  const p = document.getElementById("userPill");
+  if (!state.token) { p.innerHTML = "Oturum: <b>yok</b>"; return; }
+  const roles = Array.isArray(state.user?.roles) ? state.user.roles.join(", ") : String(state.user?.roles || "");
+  p.innerHTML = `Oturum: <b>${esc(state.user?.email || "token")}</b>${roles ? " · " + esc(roles) : ""}`;
+}
+async function login(email, password) {
+  const r = await call("POST", "/api/v1/auth/login", { body: { email, password }, flow: via("auth"), nodes: ["auth"] });
+  if (r.status === 200 && r.json?.accessToken) setToken(r.json.accessToken);
+  return r;
+}
+document.getElementById("loginCustomer").onclick = () => login("customer@ecommerce.local", "Customer123!");
+document.getElementById("loginAdmin").onclick = () => login("admin@ecommerce.local", "Admin123!");
+document.getElementById("logout").onclick = () => setToken(null);
+
+// ---------- endpoint UI ----------
+function renderFilters() {
+  const f = document.getElementById("filters");
+  const keys = ["all", ...Object.keys(SVC_LABEL)];
+  f.innerHTML = "";
+  for (const k of keys) {
+    const b = document.createElement("button");
+    b.textContent = k === "all" ? "hepsi" : SVC_LABEL[k];
+    b.className = state.filter === k ? "on" : "";
+    b.onclick = () => setFilter(k);
+    f.appendChild(b);
+  }
+}
+function setFilter(k) {
+  state.filter = state.filter === k ? "all" : k;
+  document.querySelectorAll(".node.selected").forEach(n => n.classList.remove("selected"));
+  if (state.filter !== "all") document.getElementById("n-" + state.filter)?.classList.add("selected");
+  document.querySelector('[data-tab="tEndpoints"]').click();
+  renderFilters(); renderEndpoints();
+}
+const AUTH_TAG = { public: "herkese açık", user: "giriş gerekli", admin: "ADMIN" };
+
+function renderEndpoints() {
+  const box = document.getElementById("endpoints");
+  box.innerHTML = "";
+  ENDPOINTS.filter(e => state.filter === "all" || e.svc === state.filter).forEach(ep => {
+    const d = document.createElement("details");
+    d.className = "ep";
+    d.innerHTML = `<summary><span class="m ${ep.method}">${ep.method}</span><span class="path">${esc(ep.path)}</span>
+      <span class="tag ${ep.auth}">${AUTH_TAG[ep.auth]}</span>${ep.idem ? '<span class="tag idem">Idempotency-Key</span>' : ""}
+      <span class="tag">${SVC_LABEL[ep.svc]}</span></summary>`;
+    const body = document.createElement("div");
+    body.className = "ep-body";
+    body.innerHTML = `<div class="note">${esc(ep.note)}</div>`;
+    const inputs = {};
+    for (const [name, def] of Object.entries(ep.params || {})) {
+      const l = document.createElement("label");
+      l.innerHTML = `{${name}}`;
+      const i = document.createElement("input");
+      i.value = def || (name === "id" && ep.svc === "order" || name === "orderId" ? (state.lastOrderId || "") : "");
+      i.placeholder = name === "orderId" || (ep.svc === "order" && name === "id") ? "önce bir sipariş ver; id otomatik dolar" : "";
+      i.dataset.param = name;
+      l.appendChild(i); body.appendChild(l); inputs[name] = i;
+    }
+    let q;
+    if (ep.query !== undefined) {
+      const l = document.createElement("label"); l.textContent = "Sorgu parametreleri";
+      q = document.createElement("input"); q.value = ep.query; l.appendChild(q); body.appendChild(l);
+    }
+    let key;
+    if (ep.idem) {
+      const l = document.createElement("label"); l.textContent = "Idempotency-Key (aynı anahtarla tekrar gönder → tekrar oynatma)";
+      const row = document.createElement("div"); row.className = "row";
+      key = document.createElement("input"); key.value = uuid(); key.style.flex = "1";
+      const nb = document.createElement("button"); nb.textContent = "Yeni anahtar"; nb.onclick = () => key.value = uuid();
+      row.append(key, nb); l.appendChild(row); body.appendChild(l);
+    }
+    let ta;
+    if (ep.body) {
+      const l = document.createElement("label"); l.textContent = "İstek gövdesi (JSON)";
+      ta = document.createElement("textarea"); ta.value = JSON.stringify(ep.body(), null, 2); l.appendChild(ta); body.appendChild(l);
+    }
+    const row = document.createElement("div"); row.className = "row";
+    const send = document.createElement("button"); send.className = "primary"; send.textContent = "Gönder";
+    const hint = document.createElement("span"); hint.className = "small muted";
+    if (ep.auth === "admin") hint.textContent = "Admin token'ı gerekir (üstteki 'Admin olarak gir').";
+    else if (ep.auth === "user") hint.textContent = "Token yoksa 401 dönmesini de deneyebilirsin.";
+    row.append(send, hint); body.appendChild(row);
+    send.onclick = async () => {
+      let path = ep.path;
+      for (const [n, i] of Object.entries(inputs)) {
+        if (!i.value.trim()) { i.focus(); hint.textContent = `{${n}} boş olamaz.`; return; }
+        path = path.replace(`{${n}}`, encodeURIComponent(i.value.trim()));
+      }
+      if (q && q.value.trim()) path += "?" + q.value.trim().split("&").filter(p => !/=$/.test(p)).join("&");
+      let payload;
+      if (ta) { try { payload = JSON.parse(ta.value); } catch (e) { hint.textContent = "Gövde geçerli JSON değil: " + e.message; return; } }
+      const headers = key ? { "Idempotency-Key": key.value.trim() } : {};
+      send.disabled = true;
+      const r = await call(ep.method, path, { body: payload, headers, flow: ep.flow, nodes: [ep.svc, ...(ep.nodes || [])] });
+      send.disabled = false;
+      if (ep.saveToken && r.status === 200 && r.json?.accessToken) setToken(r.json.accessToken);
+      if (ep.svc === "order" && ep.method === "POST" && r.json?.id) { state.lastOrderId = r.json.id; persist(); }
+    };
+    d.appendChild(body);
+    box.appendChild(d);
+  });
+}
+
+// ---------- scenarios ----------
+const SAGA_FLOW = {
+  PENDING:          { edges: ["order-kafka", "inventory-kafka"], nodes: ["order", "inventory"] },
+  AWAITING_PAYMENT: { edges: ["order-kafka", "payment-kafka", "payment-provider"], nodes: ["order", "payment", "provider"] },
+  CONFIRMED:        { edges: ["order-kafka", "kafka-notification"], nodes: ["order", "notification"] },
+  CANCELLED:        { edges: ["order-kafka", "kafka-notification"], nodes: ["order", "notification"] },
+};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function ensureCustomer(step) {
+  if (state.token) return true;
+  const r = await login("customer@ecommerce.local", "Customer123!");
+  step(r.status === 200, `Müşteri olarak giriş → ${r.status}`);
+  return r.status === 200;
+}
+
+async function placeAndFollow(items, step, timeline, key = uuid()) {
+  const r = await call("POST", "/api/v1/orders", { body: { items }, headers: { "Idempotency-Key": key },
+    flow: [...via("order"), "order-product"], nodes: ["order", "product"] });
+  step(r.status === 202 || r.status === 200, `POST /orders → ${r.status} ${r.json?.status || r.json?.title || ""}`);
+  if (!r.json?.id) return { order: null, key };
+  state.lastOrderId = r.json.id; persist();
+  let last = null, order = r.json;
+  for (let i = 0; i < 40; i++) {
+    if (order.status !== last) {
+      last = order.status;
+      timeline(last);
+      const f = SAGA_FLOW[last]; if (f) highlight(f.edges, f.nodes, true);
+    }
+    if (order.status === "CONFIRMED" || order.status === "CANCELLED") break;
+    await sleep(750);
+    const g = await call("GET", "/api/v1/orders/" + order.id, { quiet: true });
+    if (g.json?.status) order = g.json;
+  }
+  await call("GET", "/api/v1/orders/" + order.id, { flow: via("order"), nodes: ["order"] });
+  return { order, key };
+}
+
+const SCENARIOS = [
+  { title: "Mutlu yol: sipariş onaylanır", expect: "CONFIRMED",
+    desc: "PRD-1003 × 2. Stok ayrılır, ödeme alınır, sipariş onaylanır, bildirim oluşur.",
+    run: async (step, tl) => {
+      if (!await ensureCustomer(step)) return;
+      const { order } = await placeAndFollow([{ productId: "PRD-1003", quantity: 2 }], step, tl);
+      if (!order) return;
+      step(order.status === "CONFIRMED", `Saga sonucu: ${order.status}${order.failureReason ? " (" + order.failureReason + ")" : ""}`);
+      const p = await call("GET", "/api/v1/payments/order/" + order.id, { quiet: true });
+      step(p.status === 200, `Ödeme kaydı → ${p.status} ${p.json?.status || ""}`);
+      await sleep(1000);
+      const n = await call("GET", "/api/v1/notifications?size=5", { flow: via("notification"), nodes: ["notification"] });
+      step(n.status === 200, `Bildirimler → ${n.status}, ${n.json?.items?.length ?? n.json?.content?.length ?? "?"} kayıt`);
+    } },
+  { title: "Stok yetersiz: telafi gerekmez", expect: "CANCELLED",
+    desc: "PRD-1004 (stok 3) × 4. Rezervasyon başarısız olur; ilk adım düştüğü için geri alınacak bir şey yoktur.",
+    run: async (step, tl) => {
+      if (!await ensureCustomer(step)) return;
+      const { order } = await placeAndFollow([{ productId: "PRD-1004", quantity: 4 }], step, tl);
+      if (order) step(order.status === "CANCELLED", `Saga sonucu: ${order.status} (${order.failureReason || "-"})`);
+    } },
+  { title: "Ödeme reddi: stok geri bırakılır", expect: "CANCELLED",
+    desc: "PRD-1005 × 1. WireMock ödemeyi reddeder → ReleaseInventoryCommand (telafi) → sipariş iptal.",
+    run: async (step, tl) => {
+      if (!await ensureCustomer(step)) return;
+      const before = await call("GET", "/api/v1/inventory/PRD-1005", { quiet: true });
+      const { order } = await placeAndFollow([{ productId: "PRD-1005", quantity: 1 }], step, tl);
+      if (!order) return;
+      step(order.status === "CANCELLED", `Saga sonucu: ${order.status} (${order.failureReason || "-"})`);
+      const after = await call("GET", "/api/v1/inventory/PRD-1005", { flow: via("inventory"), nodes: ["inventory"] });
+      if (before.json && after.json)
+        step(after.json.reserved === before.json.reserved, `Stok: reserved ${before.json.reserved} → ${after.json.reserved} (telafi sonrası aynı kalmalı)`);
+    } },
+  { title: "Idempotency: aynı istek iki kez", expect: "aynı sipariş",
+    desc: "Aynı Idempotency-Key ile iki POST. İkincisi yeni sipariş açmaz; ilk yanıt 'Idempotent-Replayed: true' ile tekrar döner. Anahtarsız istek 400 alır.",
+    run: async (step) => {
+      if (!await ensureCustomer(step)) return;
+      const key = uuid(), body = { items: [{ productId: "PRD-1003", quantity: 1 }] };
+      const a = await call("POST", "/api/v1/orders", { body, headers: { "Idempotency-Key": key }, flow: via("order"), nodes: ["order"] });
+      step(a.status === 202, `1. istek → ${a.status}, id ${a.json?.id?.slice(0, 8) || "-"}`);
+      const b = await call("POST", "/api/v1/orders", { body, headers: { "Idempotency-Key": key }, flow: via("order"), nodes: ["order"] });
+      const replayed = b.headers.find(([k]) => k.toLowerCase() === "idempotent-replayed")?.[1];
+      step(b.json?.id === a.json?.id && replayed === "true", `2. istek → ${b.status}, id ${b.json?.id?.slice(0, 8) || "-"}, Idempotent-Replayed: ${replayed || "yok"}`);
+      const c = await call("POST", "/api/v1/orders", { body, flow: via("order"), nodes: ["order"] });
+      step(c.status === 400, `Anahtarsız istek → ${c.status} (400 beklenir)`);
+    } },
+  { title: "Kenar güvenliği", expect: "401 / 403 / 404",
+    desc: "Token'sız sipariş listesi 401, müşteri token'ıyla ürün oluşturma 403, /internal yolu gateway'den 404.",
+    run: async (step) => {
+      const saved = state.token;
+      const a = await call("GET", "/api/v1/orders", { headers: { Authorization: "" }, flow: ["client-gateway"], nodes: ["gateway"] });
+      step(a.status === 401, `Token'sız GET /orders → ${a.status} (gateway keser, servise gitmez)`);
+      const lr = await call("POST", "/api/v1/auth/login", { body: { email: "customer@ecommerce.local", password: "Customer123!" }, quiet: true });
+      const ct = lr.json?.accessToken;
+      const b = await call("POST", "/api/v1/products", { headers: { Authorization: "Bearer " + ct },
+        body: { sku: "X-1", name: "x", category: "x", price: 1, currency: "TRY" }, flow: via("product"), nodes: ["product"] });
+      step(b.status === 403, `Müşteri ile POST /products → ${b.status} (servis @PreAuthorize ile reddeder)`);
+      const c = await call("GET", "/internal/products/export?size=1", { flow: ["client-gateway"], nodes: ["gateway"] });
+      step(c.status === 404, `GET /internal/products/export → ${c.status} (rota yok)`);
+      state.token = saved;
+    } },
+  { title: "CQRS: yeni ürün aramaya düşer", expect: "birkaç saniyede",
+    desc: "Admin yeni ürün oluşturur; outbox → product.events → search-service. Arama, ürün görünene kadar sorgulanır.",
+    run: async (step) => {
+      const saved = state.token;
+      const lr = await call("POST", "/api/v1/auth/login", { body: { email: "admin@ecommerce.local", password: "Admin123!" }, quiet: true });
+      step(lr.status === 200, `Admin girişi → ${lr.status}`);
+      if (lr.status !== 200) return;
+      const word = "kupa" + Math.floor(Math.random() * 1e6);
+      const p = await call("POST", "/api/v1/products", { headers: { Authorization: "Bearer " + lr.json.accessToken },
+        body: { sku: "MUG-" + word.slice(4), name: "Seramik " + word, description: "CQRS demo", category: "home", price: 99.9, currency: "TRY" },
+        flow: [...via("product"), "product-kafka"], nodes: ["product"] });
+      step(p.status === 201, `POST /products → ${p.status}, id ${p.json?.id || "-"}`);
+      if (p.status !== 201) { state.token = saved; return; }
+      const t0 = performance.now();
+      highlight(["product-kafka", "kafka-search"], ["product", "search"], true);
+      for (let i = 0; i < 20; i++) {
+        const s = await call("GET", "/api/v1/search/products?q=" + word, { quiet: true });
+        if ((s.json?.total ?? 0) > 0) {
+          await call("GET", "/api/v1/search/products?q=" + word, { flow: via("search"), nodes: ["search"] });
+          step(true, `Aramada göründü: ${Math.round(performance.now() - t0)} ms sonra (nihai tutarlılık)`);
+          state.token = saved; return;
+        }
+        await sleep(500);
+      }
+      step(false, "10 sn içinde aramada görünmedi. search-service ve Kafka loglarına bak.");
+      state.token = saved;
+    } },
+];
+
+function renderScenarios() {
+  const box = document.getElementById("scenarios");
+  SCENARIOS.forEach(s => {
+    const d = document.createElement("div"); d.className = "scn";
+    d.innerHTML = `<div class="row" style="justify-content:space-between"><h3>${esc(s.title)}</h3><span class="tag">beklenen: ${esc(s.expect)}</span></div>
+      <div class="small muted">${esc(s.desc)}</div>`;
+    const btn = document.createElement("button"); btn.className = "primary"; btn.textContent = "Çalıştır"; btn.style.marginTop = "8px";
+    const tl = document.createElement("div"); tl.className = "timeline";
+    const ol = document.createElement("ol"); ol.className = "steps";
+    d.append(btn, tl, ol);
+    btn.onclick = async () => {
+      btn.disabled = true; ol.innerHTML = ""; tl.innerHTML = "";
+      const step = (ok, text) => { const li = document.createElement("li"); li.className = ok ? "ok" : "bad"; li.textContent = (ok ? "✓ " : "✗ ") + text; ol.appendChild(li); };
+      const timeline = st => { const sp = document.createElement("span"); sp.className = st; sp.textContent = st; if (tl.children.length) tl.append("→"); tl.appendChild(sp); };
+      try { await s.run(step, timeline); } catch (e) { step(false, "Hata: " + e.message); }
+      btn.disabled = false;
+    };
+    box.appendChild(d);
+  });
+}
+
+// ---------- event catalogue ----------
+const EVENTS = [
+  ["inventory.commands", "ReserveInventoryCommand, ReleaseInventoryCommand", "order", "inventory", "orderId"],
+  ["inventory.events", "InventoryReservedEvent, InventoryReservationFailedEvent, InventoryReleasedEvent", "inventory", "order", "orderId"],
+  ["payment.commands", "ProcessPaymentCommand", "order", "payment", "orderId"],
+  ["payment.events", "PaymentCompletedEvent, PaymentFailedEvent", "payment", "order", "orderId"],
+  ["order.events", "OrderConfirmedEvent, OrderCancelledEvent", "order", "notification", "orderId"],
+  ["product.events (compacted)", "ProductUpsertedEvent, ProductDeletedEvent", "product", "search", "productId"],
+];
+function renderEvents() {
+  document.getElementById("eventTable").innerHTML = "<tr><th>Topic</th><th>Mesajlar</th><th>Üreten → Tüketen</th><th>Anahtar</th></tr>"
+    + EVENTS.map(([t, m, p, c, k]) => `<tr><td class="mono">${t}</td><td class="small">${m}</td><td>${p} → ${c}</td><td class="mono">${k}</td></tr>`).join("");
+}
+
+// ---------- registry + health ----------
+async function refreshRegistry() {
+  const t = document.getElementById("registryTable");
+  const r = await call("GET", "/eureka/apps", { quiet: true, headers: { Authorization: "" } });
+  const pill = document.getElementById("eurekaPill");
+  const apps = r.json?.applications?.application;
+  if (r.status !== 200 || !apps) {
+    pill.innerHTML = '<span class="dot down"></span>Eureka <b>erişilemiyor</b>';
+    t.innerHTML = `<tr><td class="muted">Kayıt okunamadı (${r.status || "bağlantı yok"}). Yığın çalışıyor mu?</td></tr>`;
+    return;
+  }
+  const list = (Array.isArray(apps) ? apps : [apps]).flatMap(a => (Array.isArray(a.instance) ? a.instance : [a.instance])
+    .map(i => ({ app: a.name, id: i.instanceId, addr: `${i.ipAddr}:${i.port?.$ ?? i.port}`, status: i.status })));
+  pill.innerHTML = `<span class="dot up"></span>Eureka <b>${list.length} örnek</b>`;
+  t.innerHTML = "<tr><th>Servis</th><th>Örnek</th><th>Adres</th><th>Durum</th></tr>"
+    + list.sort((a, b) => a.app.localeCompare(b.app)).map(i => `<tr><td>${esc(i.app.toLowerCase())}</td><td class="mono small">${esc(i.id)}</td>
+      <td class="mono">${esc(i.addr)}</td><td class="${i.status === "UP" ? "s2" : "s5"}">${esc(i.status)}</td></tr>`).join("");
+}
+async function checkGateway() {
+  const r = await call("GET", "/actuator/health", { quiet: true, headers: { Authorization: "" } });
+  const up = r.status === 200 && r.json?.status === "UP";
+  document.getElementById("gwPill").innerHTML = `<span class="dot ${up ? "up" : "down"}"></span>Gateway <b>${up ? "UP" : (r.status ? r.json?.status || r.status : "erişilemiyor")}</b>`;
+}
+document.getElementById("refreshRegistry").onclick = refreshRegistry;
+
+// ---------- tabs + theme ----------
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id === b.dataset.tab));
+  if (b.dataset.tab === "tRegistry") refreshRegistry();
+});
+document.getElementById("themeBtn").onclick = () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+};
+
+// ---------- boot ----------
+drawMap(); renderFilters(); renderEndpoints(); renderScenarios(); renderEvents(); renderUser();
+if (location.protocol === "file:") {
+  document.getElementById("respBody").textContent = "Bu sayfa dosya olarak açıldı; tarayıcı gateway çağrılarını CORS nedeniyle engeller.\n\n"
+    + "Şununla aç:  make console   (ya da  python3 tools/api-console/serve.py)  →  http://localhost:5500";
+} else {
+  checkGateway(); refreshRegistry(); setInterval(checkGateway, 15000);
+}
+</script>
+</body>
+</html>

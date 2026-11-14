@@ -173,9 +173,7 @@ karar: [ADR-0007](../adr/0007-gozlemlenebilirlik-yigini.md).
 
 ## 10. Bilinen sınırlar
 
-- Yığın Docker'da hiç çalıştırılmadı; yalnızca derleme ve birim testleri doğrulandı.
-- Entegrasyon testleri (`*IT`) build'e bağlı değil.
 - Sepet, fiyatlandırma, kargo, iade gibi gerçek e-ticaret alanları yok.
-- CI/CD, Kubernetes, gizli bilgi yönetimi yok.
+- CD, Kubernetes, gizli bilgi yönetimi yok.
 
 Tam liste ve sıralama: [roadmap.md](../roadmap.md).
