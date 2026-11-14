@@ -7,6 +7,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -28,7 +30,10 @@ public class Payment {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
+    // The column is CHAR(3) (ISO 4217). Without the explicit JDBC type Hibernate expects VARCHAR and
+    // schema validation stops the application at startup.
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(nullable = false, length = 3)
     private String currency;
 
     @Enumerated(EnumType.STRING)

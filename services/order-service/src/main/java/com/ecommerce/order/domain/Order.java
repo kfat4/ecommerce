@@ -12,6 +12,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -40,7 +42,10 @@ public class Order {
     @Column(name = "total_amount", nullable = false)
     private BigDecimal totalAmount;
 
-    @Column(nullable = false)
+    // The column is CHAR(3) (ISO 4217). Without the explicit JDBC type Hibernate expects VARCHAR and
+    // schema validation stops the application at startup.
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(nullable = false, length = 3)
     private String currency;
 
     @Column(name = "idempotency_key", nullable = false)
