@@ -16,15 +16,15 @@ Updated: 2026-11-14 (phase 1 in progress)
 
 ## Not verified
 
-- Nothing has run in Docker. First `docker compose up` will likely surface configuration mistakes.
+- The core stack ran locally on 2026-11-15 (one replica per service): smoke test 11/11 after three fixes
+  (see lessons.md). The observability profile (Kibana, Grafana, Prometheus) has not been started yet.
 - Testcontainers ITs (`StockProceduresIT`, `ElasticsearchProductIndexIT`) have never been executed.
-- `scripts/smoke-test.sh` and `.github/workflows/ci.yml` are written but have never run.
+- The CI `smoke` job has not passed yet in GitHub Actions.
 - Kibana APM UI with OTel-native data, Grafana → Kibana exemplar links, alert rule expressions.
 
 ## Next (see docs/roadmap.md)
 
 Phase 1 "make it real" (branch `feat/phase-1-ci-and-its`):
 - done: failsafe wired, smoke test script, CI workflow (build / config / smoke), Makefile, guard-hook test.
-- blocked: Docker Desktop on the owner's machine is hung (backend log stops 2026-11-08, `docker info`
-  never returns). It needs a restart by the owner. Until then ITs and the stack can only run in CI.
-- next: get CI green (expect fixes), then start the stack locally and verify observability with real data.
+- done 2026-11-15: stack started locally, smoke test green, API console added (`tools/api-console`, `make console`).
+- next: get CI green, verify observability with real data.

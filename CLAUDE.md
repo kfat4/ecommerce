@@ -20,6 +20,7 @@ docker compose config -q                      # validate compose after editing i
 docker compose up -d --build                  # core stack                      (make up)
 docker compose --profile observability up -d  # + Kibana, Prometheus, Grafana   (make up-obs)
 scripts/smoke-test.sh                         # end-to-end order through the gateway (make smoke)
+make console                                  # API console at http://localhost:5500 (tools/api-console)
 ```
 
 `make help` lists the shortcuts. CI (`.github/workflows/ci.yml`) runs `verify`, config validation and the
@@ -36,6 +37,7 @@ libs/common-lib          contracts (events/commands), outbox, inbox, idempotency
 libs/observability-lib   OTel logs+traces, Prometheus registry, shared logback, low-precedence defaults
 services/<name>          one Spring Boot app each: api/ application/ domain/ (+ saga/, outbox/, client/ ...)
 infra/                   observability configs, postgres init, wiremock, pom template
+tools/api-console        browser console to call the API and watch the saga
 scripts/                 smoke test, guard-hook test
 docs/                    architecture, ADRs, roadmap, learning curriculum (Turkish)
 .claude/                 agents, skills, rules, hooks, shared memory

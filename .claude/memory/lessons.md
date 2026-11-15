@@ -65,3 +65,15 @@ Format: `YYYY-MM-DD` – problem → cause → fix. `verified:` says how we know
   upload-artifact v7.0.2). Resolve a tag's SHA with `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`.
 - 2026-11-11 – zsh treats `--include=*.java` and `?` in unquoted arguments as globs; quote them. zsh also
   does not word-split unquoted variables (`set -- $pair` keeps one argument); use `while read -r a b`.
+- 2026-11-15 – First real start of the stack surfaced three bugs that unit tests and ITs missed:
+  (1) Kafka producer refuses to start when `delivery.timeout.ms < linger.ms + request.timeout.ms`; with the
+  default request timeout (30000) a delivery timeout of 30000 is invalid. The outbox relay then fails every
+  run and sagas time out (`INVENTORY_TIMEOUT`). (2) Flyway `CHAR(3)` columns need `@JdbcTypeCode(SqlTypes.CHAR)`
+  on the `String` field, or `ddl-auto: validate` stops the app. (3) Spring Cloud CircuitBreaker 5.0.x pulls
+  `resilience4j-spring-boot3`, which fails fast on Boot 4: exclude it and add `resilience4j-spring-boot4`.
+  verified: `scripts/smoke-test.sh` 11/11 after the fixes.
+- 2026-11-15 – With 8 GB for Docker Desktop, start the stack with one replica per service (the `--scale ...=1`
+  flags in `ci.yml`); the default 2 replicas do not fit next to Elasticsearch and Kafka. verified: locally.
+- 2026-11-15 – Do not deserialize into common-lib's `PageResponse` in a service without Spring Data: Jackson
+  introspects its `of(Page, ...)` factory and throws `NoClassDefFoundError: org/springframework/data/domain/Page`.
+  Consumers use their own DTO (search-service `ProductCatalogApi.ExportPage`). verified: reindex returns 200.

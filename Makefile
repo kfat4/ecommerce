@@ -3,10 +3,10 @@
 COMPOSE := docker compose
 OBS     := $(COMPOSE) --profile observability
 
-.PHONY: help build test verify up up-obs smoke demo ps logs down clean check-config
+.PHONY: help build test verify up up-obs smoke demo console ps logs down clean check-config
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 build: ## Compile and package every module (no tests)
 	./mvnw -q -DskipTests package
@@ -27,6 +27,9 @@ smoke: ## End-to-end test against the running stack (register, order saga, searc
 	scripts/smoke-test.sh
 
 demo: up smoke ## Start the stack, then run the end-to-end test
+
+console: ## Open the API console at http://localhost:5500 (needs the stack running)
+	python3 tools/api-console/serve.py
 
 ps: ## Show container status
 	$(OBS) ps
