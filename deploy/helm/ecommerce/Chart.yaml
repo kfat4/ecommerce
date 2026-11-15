@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ecommerce
+description: E-commerce microservices and the infrastructure they need, for a local Kubernetes cluster.
+type: application
+version: 0.1.0
+appVersion: "local"

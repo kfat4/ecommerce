@@ -29,5 +29,5 @@ COPY --from=layers /layers/extracted/snapshot-dependencies/ ./
 COPY --from=layers /layers/extracted/application/ ./
 USER app
 # Container-aware heap sizing; exit on OOM so the orchestrator restarts a healthy instance.
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError"
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

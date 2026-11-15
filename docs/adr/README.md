@@ -16,3 +16,4 @@ olarak işaretlenir.
 | [0006](0006-jwt-ve-servisler-arasi-guven.md) | JWT ile kimlik; yerelde HS256, üretimde asimetrik | Kabul edildi (geçici) |
 | [0007](0007-gozlemlenebilirlik-yigini.md) | Gözlemlenebilirlik: OTLP + Elastic, Prometheus + Grafana | Kabul edildi |
 | [0008](0008-monorepo-ve-ortak-kutuphane.md) | Monorepo ve ortak kütüphane | Kabul edildi |
+| [0009](0009-kubernetes-servis-kesfi.md) | Kubernetes'te servis keşfi (profil + Service DNS) ve Helm | Kabul edildi |
