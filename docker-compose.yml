@@ -42,7 +42,7 @@ x-app: &app
   deploy: &app-deploy
     resources:
       limits:
-        memory: 512M
+        memory: 640M                # heap is 50% (Dockerfile); the rest is metaspace, threads, buffers
 
 services:
   # ------------------------------------------------------------------ infrastructure

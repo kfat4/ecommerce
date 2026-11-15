@@ -24,8 +24,10 @@ observability:
 serviceDefaults:
   replicas: 1
   resources:
-    requests: { cpu: 100m, memory: 384Mi }
-    limits: { memory: 512Mi }  # no CPU limit: throttling makes JVM start-up very slow
+    requests: { cpu: 100m, memory: 448Mi }
+    # Heap is 50% of the limit (MaxRAMPercentage in the Dockerfile). The other half is for metaspace, threads
+    # and buffers: with 75% of 512Mi the pods were OOMKilled under load.
+    limits: { memory: 640Mi }  # no CPU limit: throttling makes JVM start-up very slow
   # The app opens its port only after Flyway, Kafka topics etc. are ready, so give it time.
   startupProbe: { failureThreshold: 36, periodSeconds: 5 }
 
