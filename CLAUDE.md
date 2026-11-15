@@ -97,8 +97,19 @@ Why each rule exists is in `docs/adr/`. Read the relevant ADR before changing a 
 
 ## Git
 
-- Never commit to `main` directly; branch (`feat/…`, `fix/…`, `docs/…`).
-- Commit or push only when the user asks. Ask before any push.
+Every change follows the same flow (owner's rule since 2026-11-15):
+
+1. **Branch from an up-to-date `main`**: `feat/…`, `fix/…`, `docs/…`. One branch per piece of work.
+2. **Commit on the branch.** Small, single-topic commits.
+3. **Merge the branch into `develop` and prove it works there**: `./mvnw test`, and for runtime changes
+   the stack plus `make smoke`. `develop` is the integration branch; nothing is fixed directly on it.
+4. **Push the feature branch and open a PR from it to `main`** (never from `develop`, never stacked on
+   another feature branch: every PR targets `main`).
+5. **The owner merges to `main`.** Never merge or push to `main`, never enable auto-merge.
+6. **Never delete branches**, local or remote.
+
+Anything outside this flow (force-push, pushing `develop`, rewriting published history) needs the owner's
+explicit go-ahead.
 - The commit identity is the GitHub noreply address already set in this repo. Do not change it.
 - Never stage `.env*` (except `.env.example`), keys, certificates or anything with personal data.
 

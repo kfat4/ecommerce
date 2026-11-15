@@ -30,6 +30,7 @@ what "done" looks like. Agents do not see this conversation.
 8. **Teach and record** – explain to the user in Turkish what was built, which patterns were applied and
    the trade-offs. Update `.claude/memory/project-state.md`; add lessons with `/remember`.
 
-Never commit or push as part of this pipeline; the user decides that.
+Subagents never commit or push. The main session then follows the Git flow in `CLAUDE.md`
+(branch → `develop` → PR to `main`); only the owner merges to `main`.
 
 Small change (one file, no new behaviour across services)? Skip the pipeline and say so.
