@@ -19,6 +19,7 @@ make k8s-up        # imajları derle + helm upgrade --install (her şey hazır o
 make k8s-status    # pod ve service listesi
 make smoke         # aynı uçtan uca test, bu kez Kubernetes'e karşı
 make console       # API konsolu: http://localhost:5500
+make k8s-ui        # Kafka UI, pgAdmin, mongo-express, RedisInsight'ı 127.0.0.1'e port-forward eder (Ctrl+C kapatır)
 make k8s-down      # chart'ı kaldır (PVC'ler kalır)
 kubectl --context docker-desktop delete namespace ecommerce   # verilerle birlikte her şeyi sil
 ```
@@ -77,7 +78,43 @@ yeniden başlar ve sorun büyür. Dış bağımlılık kontrolü readiness'e ait
    ortam değişkenleri ekler. Kafka imajı `KAFKA_*` ile başlayan her değişkeni broker ayarı sayar, bu da
    sessiz bir hataya yol açar. Bütün pod'larda bu özellik kapalıdır.
 
-## 6. Henüz yok (sonraki dilimler)
+## 6. Veri arayüzleri (Kafka UI, pgAdmin, mongo-express, RedisInsight)
+
+`devTools.enabled: true` (varsayılan) ile [templates/dev-tools.yaml](../../deploy/helm/ecommerce/templates/dev-tools.yaml)
+dört arayüzü kümede çalıştırır. Bunlar kümenin **canlı verisine** bakar: servis adlarıyla bağlanırlar
+(`kafka:9092`, `postgres:5432`, `mongo:27017`, `redis:6379`). İmajlar ve localhost portları compose ile aynıdır.
+
+```bash
+make k8s-ui        # açık kaldığı sürece çalışır; Ctrl+C dört port-forward'u birden kapatır
+```
+
+| Arayüz | Adres | Not |
+|---|---|---|
+| Kafka UI | http://localhost:8090 | Küme adı `ecommerce-k8s`; topic'ler, consumer group lag, mesajlar |
+| pgAdmin | http://localhost:5050 | Sunucu kayıtlı ve parola sorulmaz (aşağıya bak) |
+| mongo-express | http://localhost:8091 | `product_db`, `notification_db` |
+| RedisInsight | http://localhost:5540 | İlk açılışta EULA/gizlilik ekranını **sen** onayla; `ecommerce (k8s)` bağlantısı ondan sonra listede görünür |
+
+**Neden LoadBalancer değil de port-forward?** Bu arayüzlerin önünde hiçbir kimlik doğrulama yok: mongo-express
+ve pgAdmin (desktop modu) açan herkese veritabanını tam yetkiyle verir. Docker Desktop'ta LoadBalancer
+Service'i yalnızca localhost'a değil **tüm ağ arayüzlerine** bağlanır (`lsof -iTCP:8080` → `*:8080`). Yani
+aynı Wi-Fi'daki herkes erişebilirdi. Compose'da bu yüzden `127.0.0.1:5050:80` yazıyoruz. Kubernetes'te
+karşılığı: Service'ler `ClusterIP`, erişim `kubectl port-forward --address 127.0.0.1` ile. Trade-off: komut
+açık kalmalı, pod yeniden başlarsa (ör. `helm upgrade`) port-forward kopar ve `make k8s-ui` tekrar çalışır.
+Gerçek bir ortamda bu araçlar ya hiç kurulmaz (`devTools.enabled: false`) ya da SSO'lu bir proxy
+(oauth2-proxy) ve NetworkPolicy arkasında durur.
+
+**pgAdmin parolası Secret'tan.** `infra/pgadmin/servers.json` compose ile ortaktır (`files/` altında symlink).
+Helm bu dosyaya `PassFile` ekler; bir initContainer `ecommerce-secrets` içindeki kullanıcı ve paroladan
+`/pgpass/pgpass` dosyasını yazar (bellek tabanlı `emptyDir`). libpq bu dosyayı yalnızca `0600` izinliyse ve
+okuyan kullanıcıya aitse kullanır. Bu yüzden initContainer pgAdmin ile aynı uid'de (5050) çalışır. Not:
+pgAdmin `servers.json`'u yalnızca ilk açılışta içe aktarır. Dosya değişirse pod anotasyonundaki checksum
+pod'u yeniden oluşturur. pgAdmin verisi kalıcı diskte değil, pod içinde durduğu için yeni pod dosyayı yeniden içe aktarır.
+
+Bellek: dört arayüz birlikte yaklaşık 650 MiB kullanır (Kafka UI ~280, pgAdmin ~230, RedisInsight ~110,
+mongo-express ~40). 8 GB'lık Docker VM'de sıkışırsan `--set devTools.enabled=false` ile kapat.
+
+## 7. Henüz yok (sonraki dilimler)
 
 - Gözlemlenebilirlik yığını (collector, Prometheus `kubernetes_sd_configs`, Grafana). Pod'larda
   `prometheus.io/*` anotasyonları hazır.
