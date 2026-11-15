@@ -58,13 +58,16 @@ Kısayollar için `make help`.
 | API gateway | http://localhost:8080 | `make up` (ya da Kubernetes: `make k8s-up`) |
 | API konsolu | http://localhost:5500 | `make console` |
 | Eureka | http://localhost:8761 | `make up` |
-| Kafka UI | http://localhost:8090 | `make up` |
-| pgAdmin (PostgreSQL) | http://localhost:5050 | `make up-db-ui` – sunucu kayıtlı, parola: `.env` içindeki `POSTGRES_PASSWORD` |
-| mongo-express (MongoDB) | http://localhost:8091 | `make up-db-ui` |
-| RedisInsight (Redis) | http://localhost:5540 | `make up-db-ui` – ilk açılışta EULA ekranını onayla, bağlantı sonra görünür |
+| Kafka UI | http://localhost:8090 | `make up` (Kubernetes: `make k8s-ui`) |
+| pgAdmin (PostgreSQL) | http://localhost:5050 | `make up-db-ui` (Kubernetes: `make k8s-ui`) – sunucu kayıtlı; compose'da parola `.env` içindeki `POSTGRES_PASSWORD`, Kubernetes'te sorulmaz |
+| mongo-express (MongoDB) | http://localhost:8091 | `make up-db-ui` (Kubernetes: `make k8s-ui`) |
+| RedisInsight (Redis) | http://localhost:5540 | `make up-db-ui` (Kubernetes: `make k8s-ui`) – ilk açılışta EULA ekranını onayla, bağlantı sonra görünür |
 | Grafana | http://localhost:3000 | `make up-obs` |
 | Kibana | http://localhost:5601 | `make up-obs` |
 | Prometheus | http://localhost:9090 | `make up-obs` |
+
+Kubernetes'te veri arayüzleri yalnızca 127.0.0.1'e port-forward edilir; nedeni
+[docs/architecture/03-kubernetes.md](docs/architecture/03-kubernetes.md) bölüm 6'da.
 
 Postman koleksiyonu: [tools/postman/ecommerce.postman_collection.json](tools/postman/ecommerce.postman_collection.json)
 (Postman → Import; önce `1. Auth` klasöründeki iki giriş isteğini çalıştır).
