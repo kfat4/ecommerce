@@ -1,0 +1,244 @@
+{{- /*
+Developer web UIs on the live cluster data: Kafka UI, pgAdmin, mongo-express, RedisInsight.
+They have no login in front of them, so every Service is ClusterIP and is reached only through
+`kubectl port-forward` on 127.0.0.1 (`make k8s-ui`). A Docker Desktop LoadBalancer would listen on all
+interfaces and publish them to the network. Each Service listens on the same port as in compose, so the
+port-forward maps localhost:<port> to service:<port>.
+*/ -}}
+{{- if .Values.devTools.enabled }}
+{{- $tools := .Values.devTools }}
+# ------------------------------------------------------------------------------------------- Kafka UI
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "kafka-ui" "component" "dev-tool") | nindent 4 }}
+spec:
+  selector:
+    {{- include "ecommerce.selector" (dict "name" "kafka-ui") | nindent 4 }}
+  ports:
+    - { name: http, port: {{ $tools.kafkaUi.port }}, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "kafka-ui" "component" "dev-tool") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" "kafka-ui") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" "kafka-ui" "component" "dev-tool") | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: kafka-ui
+          image: {{ $tools.kafkaUi.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: KAFKA_CLUSTERS_0_NAME, value: ecommerce-k8s }
+            - { name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS, value: "kafka:9092" }
+            - { name: JAVA_OPTS, value: "-XX:MaxRAMPercentage=60" }   # a JVM: keep the heap inside the limit
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { memory: 448Mi }
+---
+# -------------------------------------------------------------------------------------------- pgAdmin
+# The shared servers.json pre-registers postgres:5432. Helm adds a PassFile entry, and an init container
+# writes that pgpass file from the ecommerce-secrets Secret, so pgAdmin connects without asking for a password.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgadmin-servers
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "pgadmin" "component" "dev-tool") | nindent 4 }}
+data:
+  {{- $servers := .Files.Get "files/pgadmin-servers.json" | fromJson }}
+  {{- range $id, $server := $servers.Servers }}
+  {{- $_ := set $server "PassFile" "/pgpass/pgpass" }}
+  {{- end }}
+  servers.json: |
+    {{- toPrettyJson $servers | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "pgadmin" "component" "dev-tool") | nindent 4 }}
+spec:
+  selector:
+    {{- include "ecommerce.selector" (dict "name" "pgadmin") | nindent 4 }}
+  ports:
+    - { name: http, port: {{ $tools.pgadmin.port }}, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "pgadmin" "component" "dev-tool") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" "pgadmin") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" "pgadmin" "component" "dev-tool") | nindent 8 }}
+      annotations:
+        checksum/servers: {{ toJson $servers | sha256sum }}   # servers.json is read only on first start
+    spec:
+      enableServiceLinks: false
+      initContainers:
+        # libpq ignores a pgpass file unless it is 0600 and owned by the user that reads it (pgadmin, uid 5050).
+        - name: pgpass
+          image: {{ .Values.infra.waitImage }}
+          imagePullPolicy: IfNotPresent
+          securityContext: { runAsUser: 5050, runAsGroup: 5050 }
+          command: ["sh", "-c", 'echo "postgres:5432:*:$POSTGRES_USER:$POSTGRES_PASSWORD" > /pgpass/pgpass && chmod 600 /pgpass/pgpass']
+          env:
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: POSTGRES_PASSWORD } }
+          volumeMounts:
+            - { name: pgpass, mountPath: /pgpass }
+          resources:
+            requests: { cpu: 10m, memory: 8Mi }
+            limits: { memory: 16Mi }
+      containers:
+        - name: pgadmin
+          image: {{ $tools.pgadmin.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: PGADMIN_DEFAULT_EMAIL, value: admin@example.com }   # required by the image, unused in desktop mode
+            - { name: PGADMIN_DEFAULT_PASSWORD, value: admin }
+            - { name: PGADMIN_CONFIG_SERVER_MODE, value: "False" }        # desktop mode: no login screen
+            - { name: PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED, value: "False" }
+          ports:
+            - { name: http, containerPort: 80 }
+          readinessProbe:
+            httpGet: { path: /misc/ping, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { memory: 384Mi }
+          volumeMounts:
+            - { name: servers, mountPath: /pgadmin4/servers.json, subPath: servers.json, readOnly: true }
+            - { name: pgpass, mountPath: /pgpass }
+      volumes:
+        - name: servers
+          configMap: { name: pgadmin-servers }
+        - name: pgpass
+          emptyDir: { medium: Memory, sizeLimit: 1Mi }
+---
+# -------------------------------------------------------------------------------------- mongo-express
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-express
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "mongo-express" "component" "dev-tool") | nindent 4 }}
+spec:
+  selector:
+    {{- include "ecommerce.selector" (dict "name" "mongo-express") | nindent 4 }}
+  ports:
+    - { name: http, port: {{ $tools.mongoExpress.port }}, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-express
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "mongo-express" "component" "dev-tool") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" "mongo-express") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" "mongo-express" "component" "dev-tool") | nindent 8 }}
+    spec:
+      enableServiceLinks: false   # otherwise MONGO_EXPRESS_PORT=tcp://... breaks its own port setting
+      containers:
+        - name: mongo-express
+          image: {{ $tools.mongoExpress.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: ME_CONFIG_MONGODB_URL, value: "mongodb://mongo:27017/?directConnection=true" }
+            - { name: ME_CONFIG_BASICAUTH, value: "false" }
+          ports:
+            - { name: http, containerPort: 8081 }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 160Mi }
+---
+# --------------------------------------------------------------------------------------- RedisInsight
+# The connection is pre-registered. The EULA / privacy screen is left for the owner to accept in the UI.
+apiVersion: v1
+kind: Service
+metadata:
+  name: redisinsight
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "redisinsight" "component" "dev-tool") | nindent 4 }}
+spec:
+  selector:
+    {{- include "ecommerce.selector" (dict "name" "redisinsight") | nindent 4 }}
+  ports:
+    - { name: http, port: {{ $tools.redisinsight.port }}, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redisinsight
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "redisinsight" "component" "dev-tool") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" "redisinsight") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" "redisinsight" "component" "dev-tool") | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: redisinsight
+          image: {{ $tools.redisinsight.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: RI_REDIS_HOST, value: redis }
+            - { name: RI_REDIS_PORT, value: "6379" }
+            - { name: RI_REDIS_ALIAS, value: "ecommerce (k8s)" }
+          ports:
+            - { name: http, containerPort: 5540 }
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 320Mi }
+{{- end }}

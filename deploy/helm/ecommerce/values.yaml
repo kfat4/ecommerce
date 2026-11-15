@@ -82,3 +82,22 @@ infra:
     heap: -Xms512m -Xmx512m
   paymentProvider:
     image: wiremock/wiremock:3.13.2
+
+# Web UIs for looking at the live data (templates/dev-tools.yaml). Same images and localhost ports as compose.
+# None of them has a login, so they are ClusterIP only: Docker Desktop binds LoadBalancer ports on all network
+# interfaces (*:8080), which would publish them to the LAN. `make k8s-ui` port-forwards them to 127.0.0.1.
+# A shared or production cluster sets enabled: false.
+devTools:
+  enabled: true
+  kafkaUi:
+    image: kafbat/kafka-ui:v1.5.0
+    port: 8090
+  pgadmin:
+    image: dpage/pgadmin4:9.19.0
+    port: 5050
+  mongoExpress:
+    image: mongo-express:1.0.2-20-alpine3.19   # unmaintained since 2024: local use only
+    port: 8091
+  redisinsight:
+    image: redis/redisinsight:3.8.0
+    port: 5540
