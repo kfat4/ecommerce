@@ -3,7 +3,7 @@
 COMPOSE := docker compose
 OBS     := $(COMPOSE) --profile observability
 
-.PHONY: help build test verify up up-obs smoke demo up-db-ui console k8s-up k8s-status k8s-down ps logs down clean check-config
+.PHONY: help build test verify up up-obs smoke demo up-db-ui console k8s-up k8s-status k8s-ui k8s-down ps logs down clean check-config
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -39,6 +39,9 @@ k8s-up: ## Build images, then install/upgrade the Helm chart on Docker Desktop K
 
 k8s-status: ## Pods and services of the Kubernetes deployment
 	kubectl --context docker-desktop -n ecommerce get pods,svc
+
+k8s-ui: ## Port-forward cluster UIs to localhost: Kafka UI :8090, pgAdmin :5050, mongo-express :8091, RedisInsight :5540
+	scripts/k8s-ui.sh
 
 k8s-down: ## Uninstall the chart (volumes survive; delete the namespace to wipe data)
 	helm $(K8S) uninstall ecommerce
