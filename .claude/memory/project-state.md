@@ -28,3 +28,6 @@ Phase 1 "make it real" (branch `feat/phase-1-ci-and-its`):
 - done: failsafe wired, smoke test script, CI workflow (build / config / smoke), Makefile, guard-hook test.
 - done 2026-11-15: stack started locally, smoke test green, API console added (`tools/api-console`, `make console`).
 - next: get CI green, verify observability with real data.
+- done 2026-11-15 (phase 5 slice 1): Helm chart `deploy/helm/ecommerce`, ADR-0009, `make k8s-up`. Runs on
+  Docker Desktop Kubernetes, smoke test 11/11. Not in the chart yet: observability stack, HPA, PDB,
+  NetworkPolicy, ingress/TLS, external secrets.

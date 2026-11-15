@@ -174,6 +174,6 @@ karar: [ADR-0007](../adr/0007-gozlemlenebilirlik-yigini.md).
 ## 10. Bilinen sınırlar
 
 - Sepet, fiyatlandırma, kargo, iade gibi gerçek e-ticaret alanları yok.
-- CD, Kubernetes, gizli bilgi yönetimi yok.
+- Kubernetes yalnızca yerelde (Docker Desktop) çalışıyor: [03-kubernetes.md](03-kubernetes.md). CD ve gizli bilgi yönetimi yok.
 
 Tam liste ve sıralama: [roadmap.md](../roadmap.md).

@@ -1,0 +1,190 @@
+{{- /*
+Stateful infrastructure: StatefulSet (stable pod name + its own PersistentVolumeClaim) behind a headless
+Service (clusterIP: None). A headless Service name resolves straight to the pod IP, which databases and
+Kafka prefer: they advertise and recognise their own address.
+*/ -}}
+{{- $infra := .Values.infra }}
+# ------------------------------------------------------------------------------------------- PostgreSQL
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "postgres" "component" "database") | nindent 4 }}
+data:
+  01-init.sql: |
+    {{- .Files.Get "files/postgres-init.sql" | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "postgres" "component" "database") | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "ecommerce.selector" (dict "name" "postgres") | nindent 4 }}
+  ports:
+    - { name: postgres, port: 5432 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "postgres" "component" "database") | nindent 4 }}
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" "postgres" "component" "database") | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: postgres
+          image: {{ $infra.postgres.image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_DB
+              value: ecommerce
+            - name: PGDATA                       # a sub-directory: the volume root may not be empty
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: ecommerce-secrets, key: POSTGRES_PASSWORD } }
+          ports:
+            - { name: postgres, containerPort: 5432 }
+          readinessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\""] }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 384Mi }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true }
+      volumes:
+        - name: init
+          configMap: { name: postgres-init }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: {{ $infra.postgres.storage }} } }
+---
+# ------------------------------------------------------------------------------------------- MongoDB
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "mongo" "component" "database") | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "ecommerce.selector" (dict "name" "mongo") | nindent 4 }}
+  ports:
+    - { name: mongo, port: 27017 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongo
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "mongo" "component" "database") | nindent 4 }}
+spec:
+  serviceName: mongo
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" "mongo") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" "mongo" "component" "database") | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: mongo
+          image: {{ $infra.mongo.image }}
+          imagePullPolicy: IfNotPresent
+          # Single-node replica set: product-service needs multi-document transactions (product + outbox).
+          args: ["--replSet", "rs0", "--bind_ip_all"]
+          ports:
+            - { name: mongo, containerPort: 27017 }
+          # Same trick as in compose: the probe initiates the replica set once, then reports ready only
+          # when this node is the writable primary.
+          # The member host is the pod's stable StatefulSet name, not the Service name `mongo`: a headless
+          # Service publishes only ready pods, so `mongo` does not resolve until this probe passes
+          # (chicken and egg). The pod's own FQDN is always in its /etc/hosts.
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --quiet
+                - --eval
+                - "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo-0.mongo.{{ .Release.Namespace }}.svc.cluster.local:27017'}]}) }; quit(db.hello().isWritablePrimary ? 0 : 1)"
+            periodSeconds: 5
+            timeoutSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - { name: data, mountPath: /data/db }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources: { requests: { storage: {{ $infra.mongo.storage }} } }
+---
+# ------------------------------------------------------------------------------------------- Redis
+# Cache, rate-limit counters and idempotency keys: losing them on restart is acceptable locally, so a
+# Deployment without a volume is enough.
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "redis" "component" "cache") | nindent 4 }}
+spec:
+  selector:
+    {{- include "ecommerce.selector" (dict "name" "redis") | nindent 4 }}
+  ports:
+    - { name: redis, port: 6379 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    {{- include "ecommerce.labels" (dict "name" "redis" "component" "cache") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ecommerce.selector" (dict "name" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ecommerce.labels" (dict "name" "redis" "component" "cache") | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: redis
+          image: {{ $infra.redis.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { name: redis, containerPort: 6379 }
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { memory: 128Mi }

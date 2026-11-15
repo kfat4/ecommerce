@@ -6,6 +6,7 @@
 #  docker compose --profile observability up -d         + Kibana (logs, APM traces), Prometheus, Grafana, Alertmanager
 #  docker compose up -d --scale order-service=4         horizontal scaling: just add replicas (Prometheus finds them)
 #  docker compose --profile search-tools up -d kibana   only Kibana (Dev Tools console for the search index)
+#  docker compose --profile db-ui up -d                 + pgAdmin :5050, mongo-express :8091, RedisInsight :5540
 #
 #  Observability (see infra/observability/README.md):
 #    logs + traces ─OTLP─▶ otel-collector (EDOT) ─▶ elasticsearch ─▶ Kibana   http://localhost:5601
@@ -42,7 +43,7 @@ x-app: &app
   deploy: &app-deploy
     resources:
       limits:
-        memory: 512M
+        memory: 640M                # heap is 50% (Dockerfile); the rest is metaspace, threads, buffers
 
 services:
   # ------------------------------------------------------------------ infrastructure
@@ -147,6 +148,44 @@ services:
       kafka: { condition: service_healthy }
 
   # ------------------------------------------------------------------ observability
+  # ------------------------------------------------------------------ database web UIs (profile db-ui)
+  # docker compose --profile db-ui up -d     (make up-db-ui)
+  # Admin UIs without a login in front: bound to 127.0.0.1 so they are never reachable from the network.
+  pgadmin:
+    image: dpage/pgadmin4:9.19.0
+    profiles: [db-ui]
+    ports: ["127.0.0.1:5050:80"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"                # desktop mode: no login screen
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - ./infra/pgadmin/servers.json:/pgadmin4/servers.json:ro   # the postgres server is pre-registered
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  mongo-express:
+    image: mongo-express:1.0.2-20-alpine3.19              # unmaintained since 2024: local use only
+    profiles: [db-ui]
+    ports: ["127.0.0.1:8091:8081"]
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017/?directConnection=true
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongo: { condition: service_healthy }
+
+  redisinsight:
+    image: redis/redisinsight:3.8.0
+    profiles: [db-ui]
+    ports: ["127.0.0.1:5540:5540"]
+    environment:                                        # pre-registered connection
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: "6379"
+      RI_REDIS_ALIAS: ecommerce (compose)
+    depends_on:
+      redis: { condition: service_healthy }
+
   otel-collector:
     # EDOT Collector = OpenTelemetry Collector built by Elastic (elastic-agent image in OTel mode).
     image: elastic/elastic-agent:9.2.8
