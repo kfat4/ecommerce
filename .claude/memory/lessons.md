@@ -74,6 +74,17 @@ Format: `YYYY-MM-DD` – problem → cause → fix. `verified:` says how we know
   verified: `scripts/smoke-test.sh` 11/11 after the fixes.
 - 2026-11-15 – With 8 GB for Docker Desktop, start the stack with one replica per service (the `--scale ...=1`
   flags in `ci.yml`); the default 2 replicas do not fit next to Elasticsearch and Kafka. verified: locally.
+- 2026-11-15 – Kubernetes (Docker Desktop, Helm): a headless Service publishes only ready pods, so a Mongo
+  replica set initiated as `mongo:27017` never becomes ready. Use the pod FQDN
+  `mongo-0.mongo.<ns>.svc.cluster.local` (it is in the pod's /etc/hosts). A StatefulSet does not replace a pod
+  that never became ready after a template fix: delete the pod. Set `enableServiceLinks: false`, because the
+  Kafka image turns every `KAFKA_*` env var (including the injected `KAFKA_PORT`) into broker config.
+  verified: `make smoke` 11/11 against the cluster.
+- 2026-11-15 – Compose and Kubernetes both bind localhost:8080 and do not fit in 8 GB together: `make down`
+  before `make k8s-up`. verified: locally.
+- 2026-11-15 – JVM sizing: `MaxRAMPercentage=75` with a 512Mi limit left too little non-heap memory and
+  order-service was OOMKilled under load in Kubernetes. Now 50% of a 640Mi limit (Dockerfile, compose, Helm).
+  verified: Postman collection + smoke test, order-service peaks ~510Mi of 640Mi.
 - 2026-11-15 – Do not deserialize into common-lib's `PageResponse` in a service without Spring Data: Jackson
   introspects its `of(Page, ...)` factory and throws `NoClassDefFoundError: org/springframework/data/domain/Page`.
   Consumers use their own DTO (search-service `ProductCatalogApi.ExportPage`). verified: reindex returns 200.
