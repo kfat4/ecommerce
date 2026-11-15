@@ -74,3 +74,6 @@ Format: `YYYY-MM-DD` – problem → cause → fix. `verified:` says how we know
   verified: `scripts/smoke-test.sh` 11/11 after the fixes.
 - 2026-11-15 – With 8 GB for Docker Desktop, start the stack with one replica per service (the `--scale ...=1`
   flags in `ci.yml`); the default 2 replicas do not fit next to Elasticsearch and Kafka. verified: locally.
+- 2026-11-15 – Do not deserialize into common-lib's `PageResponse` in a service without Spring Data: Jackson
+  introspects its `of(Page, ...)` factory and throws `NoClassDefFoundError: org/springframework/data/domain/Page`.
+  Consumers use their own DTO (search-service `ProductCatalogApi.ExportPage`). verified: reindex returns 200.
