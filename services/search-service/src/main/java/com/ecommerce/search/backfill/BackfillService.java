@@ -1,7 +1,6 @@
 package com.ecommerce.search.backfill;
 
 import com.ecommerce.common.web.BusinessException;
-import com.ecommerce.common.web.PageResponse;
 import com.ecommerce.search.backfill.ProductCatalogApi.ExportedProduct;
 import com.ecommerce.search.index.ProductDocument;
 import com.ecommerce.search.index.ProductIndex;
@@ -49,7 +48,7 @@ public class BackfillService {
             int page = 0;
             int totalPages;
             do {
-                PageResponse<ExportedProduct> batch = catalog.export(page, PAGE_SIZE);
+                ProductCatalogApi.ExportPage batch = catalog.export(page, PAGE_SIZE);
                 total = total.plus(index.bulkUpsert(toDocuments(batch.content(), started)));
                 totalPages = batch.totalPages();
                 page++;
