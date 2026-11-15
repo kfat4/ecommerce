@@ -23,6 +23,7 @@ scripts/smoke-test.sh                         # end-to-end order through the gat
 make console                                  # API console at http://localhost:5500 (tools/api-console)
 make up-db-ui                                 # pgAdmin :5050, mongo-express :8091, RedisInsight :5540 (compose)
 make k8s-up                                   # same images on Docker Desktop Kubernetes via Helm (run `make down` first)
+make k8s-ui                                   # port-forward cluster UIs to 127.0.0.1: Kafka UI 8090, pgAdmin 5050, mongo-express 8091, RedisInsight 5540
 ```
 
 `make help` lists the shortcuts. CI (`.github/workflows/ci.yml`) runs `verify`, config validation and the
