@@ -82,6 +82,9 @@ Format: `YYYY-MM-DD` – problem → cause → fix. `verified:` says how we know
   verified: `make smoke` 11/11 against the cluster.
 - 2026-11-15 – Compose and Kubernetes both bind localhost:8080 and do not fit in 8 GB together: `make down`
   before `make k8s-up`. verified: locally.
+- 2026-11-15 – JVM sizing: `MaxRAMPercentage=75` with a 512Mi limit left too little non-heap memory and
+  order-service was OOMKilled under load in Kubernetes. Now 50% of a 640Mi limit (Dockerfile, compose, Helm).
+  verified: Postman collection + smoke test, order-service peaks ~510Mi of 640Mi.
 - 2026-11-15 – Do not deserialize into common-lib's `PageResponse` in a service without Spring Data: Jackson
   introspects its `of(Page, ...)` factory and throws `NoClassDefFoundError: org/springframework/data/domain/Page`.
   Consumers use their own DTO (search-service `ProductCatalogApi.ExportPage`). verified: reindex returns 200.

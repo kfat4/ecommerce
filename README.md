@@ -53,14 +53,21 @@ scripts/smoke-test.sh
 
 Kısayollar için `make help`.
 
-| Arayüz | Adres |
-|---|---|
-| API gateway | http://localhost:8080 |
-| Eureka | http://localhost:8761 |
-| Kafka UI | http://localhost:8090 |
-| Grafana | http://localhost:3000 |
-| Kibana | http://localhost:5601 |
-| Prometheus | http://localhost:9090 |
+| Arayüz | Adres | Nasıl açılır |
+|---|---|---|
+| API gateway | http://localhost:8080 | `make up` (ya da Kubernetes: `make k8s-up`) |
+| API konsolu | http://localhost:5500 | `make console` |
+| Eureka | http://localhost:8761 | `make up` |
+| Kafka UI | http://localhost:8090 | `make up` |
+| pgAdmin (PostgreSQL) | http://localhost:5050 | `make up-db-ui` – sunucu kayıtlı, parola: `.env` içindeki `POSTGRES_PASSWORD` |
+| mongo-express (MongoDB) | http://localhost:8091 | `make up-db-ui` |
+| RedisInsight (Redis) | http://localhost:5540 | `make up-db-ui` – ilk açılışta EULA ekranını onayla, bağlantı sonra görünür |
+| Grafana | http://localhost:3000 | `make up-obs` |
+| Kibana | http://localhost:5601 | `make up-obs` |
+| Prometheus | http://localhost:9090 | `make up-obs` |
+
+Postman koleksiyonu: [tools/postman/ecommerce.postman_collection.json](tools/postman/ecommerce.postman_collection.json)
+(Postman → Import; önce `1. Auth` klasöründeki iki giriş isteğini çalıştır).
 
 ## Belgeler
 

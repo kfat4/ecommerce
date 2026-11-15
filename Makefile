@@ -3,7 +3,7 @@
 COMPOSE := docker compose
 OBS     := $(COMPOSE) --profile observability
 
-.PHONY: help build test verify up up-obs smoke demo console k8s-up k8s-status k8s-down ps logs down clean check-config
+.PHONY: help build test verify up up-obs smoke demo up-db-ui console k8s-up k8s-status k8s-down ps logs down clean check-config
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -22,6 +22,9 @@ up: ## Build images and start the core stack
 
 up-obs: ## Start the core stack plus Kibana, Prometheus, Grafana and Alertmanager
 	$(OBS) up -d --build
+
+up-db-ui: ## Start database web UIs: pgAdmin :5050, mongo-express :8091, RedisInsight :5540 (compose)
+	$(COMPOSE) --profile db-ui up -d
 
 smoke: ## End-to-end test against the running stack (register, order saga, search)
 	scripts/smoke-test.sh
@@ -58,4 +61,5 @@ clean: ## Stop the stack and DELETE all data volumes
 check-config: ## Validate compose files and the Claude Code guard hook
 	$(COMPOSE) config -q
 	$(OBS) --profile search-tools config -q
+	$(COMPOSE) --profile db-ui config -q
 	scripts/test-guard-hook.sh
