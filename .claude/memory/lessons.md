@@ -88,3 +88,7 @@ Format: `YYYY-MM-DD` – problem → cause → fix. `verified:` says how we know
 - 2026-11-15 – Do not deserialize into common-lib's `PageResponse` in a service without Spring Data: Jackson
   introspects its `of(Page, ...)` factory and throws `NoClassDefFoundError: org/springframework/data/domain/Page`.
   Consumers use their own DTO (search-service `ProductCatalogApi.ExportPage`). verified: reindex returns 200.
+- 2026-11-25 – graphify (optional code graph): 0 service-to-service edges. Kafka topics, `lb://` routes and SQL are
+  invisible, and `--undirected` paths go through shared classes (OutboxPublisher, JdbcTemplate), not message flow.
+  Do not infer coupling, or its absence, from it; do not run `graphify install`. See `docs/ai/graphify.md`.
+  verified: 0.9.112.
