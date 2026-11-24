@@ -2,7 +2,7 @@
 
 Bu depo aynı zamanda agentic geliştirme pratiği için kurulmuştur. Burada Claude Code'un beş yapı taşını
 gerçek bir projede kullanırsın: talimatlar, kurallar, ajanlar, skill'ler ve hook'lar. Altıncısı hafızadır;
-[hafiza-sistemi.md](hafiza-sistemi.md) dosyasında ayrıca anlatılır.
+[hafiza-sistemi.md](hafiza-sistemi.md) dosyasında ayrıca anlatılır. İsteğe bağlı kod grafiği aracı: [graphify.md](graphify.md).
 
 ## 1. Yapı taşları ve bu depodaki karşılıkları
 
