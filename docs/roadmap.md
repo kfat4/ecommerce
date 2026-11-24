@@ -4,7 +4,7 @@ Her faz hem projeye bir yetenek ekler hem de sana bir mimarlık konusu öğretir
 elimizdekinin gerçekten çalıştığını kanıtlarız, sonra alan ekleriz, sonra platformu büyütürüz.
 
 Her faz aynı döngüyle yürür: `solution-architect` tasarlar ve ADR yazar → sen onaylarsın →
-`java-backend-developer` uygular → `test-engineer` ve `code-reviewer` denetler → `tech-mentor` sana anlatır.
+`java-backend-developer` uygular → `test-engineer` ve `code-reviewer` denetler → ana oturum sana anlatır.
 
 | Faz | Başlık | Durum |
 |---|---|---|
