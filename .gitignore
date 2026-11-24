@@ -32,5 +32,8 @@ CLAUDE.local.md
 .claude/agent-memory-local/
 .claude/worktrees/
 
-# Personal learning material (curriculum, lesson notes, progress): stays on the owner's machine
+# Personal learning material (curriculum, lesson notes, progress, teaching agent and skill):
+# stays on the owner's machine
 docs/learning/
+.claude/agents/tech-mentor.md
+.claude/skills/teach/

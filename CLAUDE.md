@@ -43,7 +43,7 @@ infra/                   observability configs, postgres init, wiremock, pom tem
 deploy/helm/ecommerce    Helm chart: services + infrastructure for Kubernetes (ADR-0009)
 tools/api-console        browser console to call the API and watch the saga
 scripts/                 smoke test, guard-hook test
-docs/                    architecture, ADRs, roadmap, learning curriculum (Turkish)
+docs/                    architecture, ADRs, roadmap (Turkish)
 .claude/                 agents, skills, rules, hooks, shared memory
 ```
 
@@ -113,6 +113,7 @@ Anything outside this flow (force-push, pushing `develop`, rewriting published h
 explicit go-ahead.
 - The commit identity is the GitHub noreply address already set in this repo. Do not change it.
 - Never stage `.env*` (except `.env.example`), keys, certificates or anything with personal data.
+- Learning material is local-only: never commit it or `git add -f` the learning paths in `.gitignore`.
 
 ## Agent team
 
@@ -127,7 +128,6 @@ Specialists live in `.claude/agents/`. Delegate when the work matches; keep smal
 | `security-reviewer` | authn/authz, secrets, injection, PII in logs |
 | `platform-engineer` | Docker, compose, CI/CD, Kubernetes, config |
 | `sre-observability` | metrics, alerts, dashboards, tracing, SLOs, incident analysis |
-| `tech-mentor` | teaching a topic from this codebase to the user, with exercises |
 
 `/feature-team <feature>` runs the full pipeline: design → implement → test → review.
 

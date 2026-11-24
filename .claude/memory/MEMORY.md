@@ -19,6 +19,6 @@ Entries are claims with a date, not truth. Verify against the code before acting
   rules and dashboards are still statically validated only.
 - Integration tests (`*IT`) run in `./mvnw verify` (failsafe, since 2026-11-14). They run in CI; locally
   they need a working Docker.
-- `docs/learning/` (curriculum, lesson notes) is the owner's personal material: git-ignored, never commit it
-  (user instruction, 2026-11-14). `tech-mentor` therefore uses local memory.
+- Learning material (curriculum, lesson notes, teaching agent and skill) is the owner's personal material:
+  git-ignored (paths in `.gitignore`), never commit it (user instruction, 2026-11-14, widened 2026-11-24).
 - Per-agent memory is separate: `.claude/agent-memory/<agent>/MEMORY.md` (each agent curates its own).
