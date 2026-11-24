@@ -82,6 +82,9 @@ demek değildir. Bulunan yolu da adım adım kodda doğrula.
   dizinini içeren `.graphify_root` ve elle yönlendirilmiş `*.log` dosyaları.
 - Commit'lenen grafik **kendiliğinden güncellenmez, bayatlar**: kodun commit'teki halini gösterir. `make graph` ile
   tazelenir; yeni çıktı commit'lenmeden önce ev dizini, e-posta ve anahtar için taranmalıdır (depo herkese açık).
+- Çıktı kod değişmese de diff üretir: `explain` / `affected` gibi sorgular `cache/last_query_stamp` dosyasını,
+  `make graph` ise `stat-index.json` ile `graph.json` içindeki `built_at_commit` alanını (yeni klonda `manifest.json`
+  zaman damgalarını da) değiştirir. Düğüm ve kenarlar aynı kalır. Kod değişmediyse bu diff'i commit'leme.
 - `.graphifyignore`: `.env*`, anahtarlar, öğrenme dosyaları, `.claude/worktrees/`, `target/` ve IDE dosyaları.
 - Grafik, ağ erişimi kapalıyken de (macOS `sandbox-exec`) üretildi. İncelenen graphify kodunda telemetri ya da
   güncelleme kontrolü bulunmadı (bağımlılıkların kodu incelenmedi); sorgu günlüğü varsayılan olarak kapalı.
