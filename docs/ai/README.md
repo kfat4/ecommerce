@@ -30,7 +30,6 @@ istiyorsan hook yaz.
 | `security-reviewer` | Güvenlik incelemesi | Hayır | opus |
 | `platform-engineer` | Docker, CI/CD, Kubernetes | Evet (altyapı dosyaları) | sonnet |
 | `sre-observability` | Metrik, alarm, dashboard, olay analizi | Evet (gözlem dosyaları) | sonnet |
-| `tech-mentor` | Sana konu anlatır | Yalnızca `docs/learning/` | oturumun modeli |
 
 Tasarım ilkeleri (kendi ajanlarını yazarken de geçerli):
 
@@ -53,7 +52,6 @@ Tasarım ilkeleri (kendi ajanlarını yazarken de geçerli):
 | `/write-adr <başlık>` | Şablondan ADR yazar, dizine ekler | Sen ya da Claude |
 | `/remember <bilgi>` | Ortak hafızaya kalıcı not | Sen ya da Claude |
 | `/handoff` | Oturum devir notu | Yalnızca sen |
-| `/teach <konu>` | Konuyu koddan anlatır, alıştırma verir | Sen ya da Claude |
 | `/map-architecture [yol]` | Tanımadığın bir kod tabanının haritasını çıkarır | Sen ya da Claude |
 
 "Yalnızca sen" olanlar yan etkili ya da pahalıdır (`disable-model-invocation: true`); Claude kendi kararıyla
@@ -117,12 +115,6 @@ Hat, tasarım aşamasında durur ve sana sorar. Tasarımı okumadan onaylama; ö
 
 Belirtiyi ver (log satırı, başarısız test, alarm adı). "Önce hatayı yeniden üreten bir test yaz" de. Kök neden
 bulunmadan düzeltme kabul etme.
-
-### Öğrenme
-
-```
-/teach outbox
-```
 
 ### Uzun işi bölmek
 

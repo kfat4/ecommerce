@@ -10,5 +10,4 @@
 | [ai/hafiza-sistemi.md](ai/hafiza-sistemi.md) | Ajan hafıza sistemi: katmanlar ve yazma/okuma protokolü |
 | [../infra/observability/README.md](../infra/observability/README.md) | Log, trace, metrik ve alarm yığını |
 
-`docs/learning/` (kişisel öğrenme müfredatı ve ders notları) bilerek depoya eklenmez; yalnızca sahibinin
-makinesinde durur.
+Kişisel öğrenme materyali bilerek depoya eklenmez; yalnızca sahibinin makinesinde durur.

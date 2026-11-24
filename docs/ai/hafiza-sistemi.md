@@ -20,7 +20,7 @@ flowchart TB
 | 1 | `CLAUDE.md`, `.claude/rules/` | Sen | Evet | Her oturum / eşleşen dosyada | Değişmeyen kurallar, komutlar |
 | 2 | `.claude/memory/` | Ajanlar (`/remember`) | Evet | Dizin her oturumda; dosyalar gerektiğinde | Durum, dersler, sözlük, açık sorular, devir notları |
 | 3 | `.claude/agent-memory/<ajan>/` | O ajan | Evet | O ajan her çalıştığında | Ajanın kendi alanında öğrendikleri |
-| 3b | `.claude/agent-memory-local/tech-mentor/` | `tech-mentor` | **Hayır** | Mentor çalıştığında | Senin öğrenme ilerlemen (kişisel) |
+| 3b | `.claude/agent-memory-local/<ajan>/` | `memory: local` kullanan ajan | **Hayır** | O ajan her çalıştığında | Kişisel, makineye özgü notlar |
 | 4 | `docs/adr/` | `solution-architect`, sen | Evet | İlgili alanda çalışırken | Mimari kararlar ve gerekçeleri |
 | 5 | `~/.claude/projects/...`, claude-mem | Claude (otomatik) | Hayır | Her oturum | Senin tercihlerin, kişisel notlar |
 
@@ -73,7 +73,7 @@ kırılgan testleri kaydeder. Klasörler ilk yazmada oluşur; şu an boştur.
 Neden ayrı: inceleyicinin bildiği ile mimarın bildiği farklıdır. Hepsini tek dosyaya koymak her ajanın
 bağlamını ilgisiz bilgiyle doldurur.
 
-`tech-mentor` bilerek `memory: local` kullanır: senin hangi konuda zorlandığın depoya girmez.
+Kişisel not tutan bir ajan `memory: local` kullanır; hafızası depoya girmez.
 
 ## 6. Bakım
 
