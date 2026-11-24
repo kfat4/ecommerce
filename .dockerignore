@@ -4,6 +4,7 @@
 .vscode
 .claude
 docs
+graphify-out
 *.md
 .env
 .env.*
