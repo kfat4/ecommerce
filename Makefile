@@ -3,7 +3,7 @@
 COMPOSE := docker compose
 OBS     := $(COMPOSE) --profile observability
 
-.PHONY: help build test verify up up-obs smoke demo up-db-ui console k8s-up k8s-status k8s-ui k8s-down ps logs down clean check-config
+.PHONY: help build test verify up up-obs smoke demo up-db-ui console k8s-up k8s-status k8s-ui k8s-down graph ps logs down clean check-config
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +48,17 @@ k8s-down: ## Uninstall the chart (volumes survive; delete the namespace to wipe 
 
 console: ## Open the API console at http://localhost:5500 (needs the stack running)
 	python3 tools/api-console/serve.py
+
+GRAPHIFY_VERSION := 0.9.112
+
+graph: ## Build the local code graph in graphify-out/ (optional tool, see docs/ai/graphify.md)
+	@command -v graphify >/dev/null || { \
+	  echo "graphify is not installed (optional tool). Install the pinned version:"; \
+	  echo "  uv tool install --python 3.13 --exclude-newer 2026-11-18T00:00:00Z graphifyy==$(GRAPHIFY_VERSION)"; \
+	  exit 1; }
+	@graphify --version | grep -qxF "graphify $(GRAPHIFY_VERSION)" || \
+	  echo "warning: expected graphify $(GRAPHIFY_VERSION), found: $$(graphify --version)"
+	GRAPHIFY_BACKEND=none GRAPHIFY_NO_TIPS=1 GRAPHIFY_NO_AUTO_REFRESH=1 graphify extract . --code-only
 
 ps: ## Show container status
 	$(OBS) ps

@@ -1,0 +1,22 @@
+# graphify (local code graph, docs/ai/graphify.md): never index these, even if git tracks them.
+.env*
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.pfx
+secrets/
+
+# Personal learning material
+docs/learning/
+.claude/agents/tech-mentor.md
+.claude/skills/teach/
+
+# Other checkouts, agent state, build output
+.claude/worktrees/
+.claude/agent-memory-local/
+target/
+graphify-out/
+.idea/
+.vscode/
