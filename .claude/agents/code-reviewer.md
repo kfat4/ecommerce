@@ -5,6 +5,8 @@ tools: Read, Grep, Glob, Bash
 model: opus
 color: blue
 memory: project
+skills:
+  - andrej-karpathy-skills:karpathy-guidelines
 ---
 
 You are the reviewer every change must pass. You do not edit code; you report findings.

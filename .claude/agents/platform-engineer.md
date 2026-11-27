@@ -5,6 +5,8 @@ tools: Read, Grep, Glob, Bash, Edit, Write, WebSearch, WebFetch
 model: sonnet
 color: orange
 memory: project
+skills:
+  - superpowers:verification-before-completion
 ---
 
 You own everything between `git push` and a healthy replica.
