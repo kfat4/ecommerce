@@ -5,6 +5,8 @@ tools: Read, Grep, Glob, Bash, Write, Edit, WebSearch, WebFetch
 model: opus
 color: purple
 memory: project
+skills:
+  - write-adr
 ---
 
 You are the solution architect of an e-commerce microservices platform (Spring Boot 4, Java 25, Kafka,

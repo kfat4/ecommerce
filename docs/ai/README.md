@@ -31,6 +31,38 @@ istiyorsan hook yaz.
 | `platform-engineer` | Docker, CI/CD, Kubernetes | Evet (altyapı dosyaları) | sonnet |
 | `sre-observability` | Metrik, alarm, dashboard, olay analizi | Evet (gözlem dosyaları) | sonnet |
 
+### Ajanlara önceden yüklenen skill'ler
+
+Ajan dosyasının `skills:` alanı, listelenen skill'lerin **tam metnini** ajan başlarken bağlamına koyar.
+Bedeli şudur: metin her çağrıda bağlama girer. Bu yüzden ajan başına en çok üç skill seçildi. Eklenti
+skill'leri `eklenti:skill` biçiminde yazılır.
+
+| Ajan | Önceden yüklenen skill'ler | Neden |
+|---|---|---|
+| `java-backend-developer` | `superpowers:test-driven-development`, `superpowers:verification-before-completion`, `andrej-karpathy-skills:karpathy-guidelines` | Önce kırmızı test, kanıtsız "bitti" yok, en az kod ve cerrahi değişiklik |
+| `test-engineer` | `superpowers:test-driven-development` | Hatayı önce başarısız testle yeniden üretmek; ajan dosyası, var olan kodu silme kuralını bu ajan için kapatır |
+| `code-reviewer` | `andrej-karpathy-skills:karpathy-guidelines` | "Her değişen satır göreve bağlanmalı" ölçütü, inceleme listesinin 6. maddesiyle aynı |
+| `solution-architect` | `write-adr` (proje skill'i) | Karar her zaman ADR biçiminde yazılır |
+| `platform-engineer` | `superpowers:verification-before-completion` | `docker compose config -q`, `helm lint` çıktısı görülmeden "çalışıyor" denmez |
+| `sre-observability` | `superpowers:systematic-debugging` | Olay analizinde önce kök neden, sonra düzeltme |
+| `security-reviewer` | – | Kendi kontrol listesi yeterli; uyan bir skill yok |
+
+Bilerek **seçilmeyenler**: `requesting-code-review` (inceleme isteyen taraf için yazılmış, alt ajan
+başlatır), `brainstorming` (kullanıcıyla adım adım konuşur ve kendi spec/plan akışını başlatır; alt ajan
+kullanıcıyla konuşamaz ve `/feature-team` tasarımı zaten sana gösterir), `using-git-worktrees`,
+`finishing-a-development-branch`, `subagent-driven-development`, `executing-plans`,
+`dispatching-parallel-agents` (Git akışımızla veya `/feature-team` düzeniyle çatışır; alt ajan alt ajan
+başlatamaz zaten). `new-microservice` gibi `disable-model-invocation: true` olan skill'ler önceden
+yüklenemez.
+
+Sınırlar:
+
+- **Eklenti kurulu değilse** Claude Code belgelerine göre o skill atlanır ve debug günlüğüne uyarı yazılır;
+  ajan yine çalışır, yalnızca o yöntemi bilmeden (bu depoda henüz denenmedi). Ekip arkadaşının eklentileri kurması (bölüm 4) bu yüzden önemlidir.
+- Önceden yüklenen metin yalnızca `SKILL.md` dosyasıdır. Skill'in yanındaki ek dosyalar (örneğin
+  `writing-good-tests.md`) yüklenmez.
+- Ajan tanımları oturum başında okunur. `skills:` alanını değiştirdikten sonra yeni oturum aç.
+
 Tasarım ilkeleri (kendi ajanlarını yazarken de geçerli):
 
 - **Tek sorumluluk.** Ajanın `description` alanı, ana oturumun onu ne zaman çağıracağını belirler. Belirsiz
