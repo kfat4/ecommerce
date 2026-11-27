@@ -104,5 +104,5 @@ yapılandırma ile kodun ayrılması, yayın stratejileri.
 
 ## Nasıl ilerleriz
 
-Bir faza başlamak için: `/feature-team Faz 1: yığını ayağa kaldır ve CI ekle` yazman yeterli. Fazlar
-küçük dilimlere bölünür; her dilim ayrı bir dalda, ayrı bir PR ile biter.
+Bir faza başlamak için ana oturuma "Faz 1: yığını ayağa kaldır ve CI ekle" yazman yeterli; superpowers
+akışı (beyin fırtınası → plan → ajanlarla uygulama) devreye girer. Fazlar küçük dilimlere bölünür; her dilim ayrı bir dalda, ayrı bir PR ile biter.

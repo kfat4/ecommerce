@@ -130,7 +130,15 @@ Specialists live in `.claude/agents/`. Delegate when the work matches; keep smal
 | `platform-engineer` | Docker, compose, CI/CD, Kubernetes, config |
 | `sre-observability` | metrics, alerts, dashboards, tracing, SLOs, incident analysis |
 
-`/feature-team <feature>` runs the full pipeline: design → implement → test → review.
+A multi-step feature is orchestrated by the main session with superpowers: `superpowers:brainstorming` →
+`superpowers:writing-plans` → `superpowers:subagent-driven-development`, dispatching the agents above where
+they fit (design → implement → test → review). Project rules win over the skills:
+
+- Show the design to the user and wait for their agreement before any implementation.
+- One writer per set of files; never two agents editing the same files.
+- Subagents never commit or push. The main session runs `./mvnw test` itself before reporting done.
+- Finish with the Git flow below and record lessons with `/remember`. `finishing-a-development-branch` and
+  `using-git-worktrees` follow that flow too: never merge into `main`, never delete a branch.
 
 ## Memory
 
