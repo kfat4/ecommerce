@@ -17,7 +17,9 @@ gerçek bir projede kullanırsın: talimatlar, kurallar, ajanlar, skill'ler ve h
 
 En önemli ayrım: **`CLAUDE.md` tavsiyedir, hook zorunluluktur.** "`.env` dosyasına dokunma" cümlesi çoğu
 zaman işe yarar; `guard-protected-files.py` her zaman işe yarar. Geri alınamaz bir hatayı önlemek
-istiyorsan hook yaz.
+istiyorsan hook yaz. Aynı nedenle `guard-main-branch.py`, talimat nereden gelirse gelsin (bir skill veya
+plugin "base branch'e merge et" dese bile) `main` üzerinde commit/merge/rebase, `main`'e push ve
+`gh pr merge` komutlarını engeller; `main` yalnızca sahibinin merge ettiği PR ile değişir.
 
 ## 2. Ajan ekibi
 
