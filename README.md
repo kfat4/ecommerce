@@ -82,10 +82,9 @@ Postman koleksiyonu: [tools/postman/ecommerce.postman_collection.json](tools/pos
 ## AI ajanlarla çalışmak
 
 Depo Claude Code için yapılandırılmıştır: [CLAUDE.md](CLAUDE.md), `.claude/agents` (8 uzman ajan),
-`.claude/skills` (8 iş akışı), `.claude/rules`, bir koruma hook'u ve dosya tabanlı ortak hafıza.
+`.claude/skills` (6 iş akışı), `.claude/rules`, bir koruma hook'u ve dosya tabanlı ortak hafıza.
 
 ```text
-/feature-team <özellik>     tasarım → uygulama → test → inceleme
 /map-architecture           tanımadığın bir kod tabanının haritası
 /write-adr <başlık>         mimari karar kaydı
 ```

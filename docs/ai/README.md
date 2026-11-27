@@ -46,7 +46,6 @@ Tasarım ilkeleri (kendi ajanlarını yazarken de geçerli):
 
 | Komut | Ne yapar | Kim çağırır |
 |---|---|---|
-| `/feature-team <özellik>` | Tasarım → uygulama → test → inceleme hattı | Yalnızca sen |
 | `/new-microservice <ad> <amaç>` | Yeni servis iskeleti ve kontrol listesi | Yalnızca sen |
 | `/add-integration-event <olay>` | Kafka mesajını uçtan uca ekleme adımları | Sen ya da Claude |
 | `/write-adr <başlık>` | Şablondan ADR yazar, dizine ekler | Sen ya da Claude |
@@ -93,8 +92,11 @@ Notlar:
   gözlemlerinden türetilmiş, topluluk tarafından hazırlanmış tek bir skill'dir (MIT lisanslı, yalnızca metin).
   Dört ilkesi (kodlamadan önce düşün, sadelik, cerrahi değişiklik, hedef odaklı çalışma) bu projenin
   `CLAUDE.md` dosyasına kendi cümlelerimizle zaten yazılmıştır; eklenti kurulmasa da ilkeler geçerlidir.
-- `superpowers` kendi iş akışını getirir (önce beyin fırtınası, sonra plan, sonra uygulama). Bu deponun
-  `/feature-team` hattıyla aynı fikirdedir; ikisini aynı işte üst üste çalıştırma, birini seç.
+- `superpowers` bu deponun özellik akışıdır (önce beyin fırtınası, sonra plan, sonra ajanlarla uygulama).
+  Ana oturum yürütür ve bölüm 2'deki ajanları çağırır. Proje kuralları skill'lerden önce gelir (`CLAUDE.md`,
+  "Agent team"): uygulamadan önce tasarım onayı, dosya başına tek yazar, alt ajan commit/push yapmaz, Git
+  akışı geçerlidir. `finishing-a-development-branch` ve `using-git-worktrees` da bu akışa uyar: `main`'e
+  merge yok, dal silme yok.
 - Üçüncü taraf eklenti, senin adına komut çalıştırabilen koddur. Kurmadan önce ne içerdiğine bak.
 
 ## 5. Günlük çalışma biçimleri
@@ -106,10 +108,11 @@ Doğrudan iste. Ajan ekibine gerek yok. Bitince "ne doğruladın?" diye sor.
 ### Yeni özellik
 
 ```
-/feature-team Sepete ürün ekleme: Redis'te TTL'li sepet, misafir sepeti girişte birleşsin
+Sepete ürün ekleme: Redis'te TTL'li sepet, misafir sepeti girişte birleşsin
 ```
 
-Hat, tasarım aşamasında durur ve sana sorar. Tasarımı okumadan onaylama; öğrenmenin en yoğun olduğu yer orası.
+Ana oturum superpowers akışıyla (`brainstorming` → `writing-plans` → `subagent-driven-development`)
+ilerler, tasarım aşamasında durur ve sana sorar. Tasarımı okumadan onaylama; öğrenmenin en yoğun olduğu yer orası.
 
 ### Hata ayıklama
 
