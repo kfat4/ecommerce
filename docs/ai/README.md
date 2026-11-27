@@ -49,9 +49,9 @@ skill'leri `eklenti:skill` biçiminde yazılır.
 
 Bilerek **seçilmeyenler**: `requesting-code-review` (inceleme isteyen taraf için yazılmış, alt ajan
 başlatır), `brainstorming` (kullanıcıyla adım adım konuşur ve kendi spec/plan akışını başlatır; alt ajan
-kullanıcıyla konuşamaz ve `/feature-team` tasarımı zaten sana gösterir), `using-git-worktrees`,
+kullanıcıyla konuşamaz; tasarımı sana ana oturum gösterir), `using-git-worktrees`,
 `finishing-a-development-branch`, `subagent-driven-development`, `executing-plans`,
-`dispatching-parallel-agents` (Git akışımızla veya `/feature-team` düzeniyle çatışır; alt ajan alt ajan
+`dispatching-parallel-agents` (Git akışımızla veya ana oturumun düzeniyle çatışır; alt ajan alt ajan
 başlatamaz zaten). `new-microservice` gibi `disable-model-invocation: true` olan skill'ler önceden
 yüklenemez.
 
